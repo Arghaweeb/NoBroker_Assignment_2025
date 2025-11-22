@@ -29,6 +29,7 @@ import {
   getLibrary,
   addRecipeToShoppingList,
 } from '../utils/recipe-library-storage';
+import { CookingMode } from './CookingMode';
 
 interface RecipeDetailViewProps {
   recipe: SavedRecipe;
@@ -54,6 +55,7 @@ export default function RecipeDetailView({
   const [collections, setCollections] = useState<RecipeCollection[]>([]);
   const [showCopied, setShowCopied] = useState(false);
   const [showAddedToList, setShowAddedToList] = useState(false);
+  const [showCookingMode, setShowCookingMode] = useState(false);
 
   React.useEffect(() => {
     const library = getLibrary();
@@ -160,7 +162,18 @@ ${recipe.personalNotes ? `\nPERSONAL NOTES:\n${recipe.personalNotes}` : ''}
               Back to Library
             </button>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              {/* Start Cooking Button */}
+              <button
+                onClick={() => setShowCookingMode(true)}
+                className="px-6 py-2 bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all transform hover:scale-105 flex items-center gap-2"
+                title="Start Cooking Mode"
+              >
+                <ClockIcon className="w-5 h-5" />
+                Start Cooking
+              </button>
+
+              <div className="flex items-center gap-2">
               <button
                 onClick={handleAddToShoppingList}
                 className="p-2 rounded-full bg-white border-2 border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-400 transition-all relative"
@@ -212,6 +225,7 @@ ${recipe.personalNotes ? `\nPERSONAL NOTES:\n${recipe.personalNotes}` : ''}
               >
                 <TrashIcon className="w-5 h-5" />
               </button>
+              </div>
             </div>
           </div>
         </div>
@@ -483,6 +497,17 @@ ${recipe.personalNotes ? `\nPERSONAL NOTES:\n${recipe.personalNotes}` : ''}
           )}
         </div>
       </div>
+
+      {/* Cooking Mode Modal */}
+      {showCookingMode && (
+        <CookingMode
+          recipe={recipe}
+          onClose={() => {
+            setShowCookingMode(false);
+            onUpdate(); // Refresh recipe data in case of updates
+          }}
+        />
+      )}
     </div>
   );
 }
