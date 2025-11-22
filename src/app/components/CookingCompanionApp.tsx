@@ -4,13 +4,15 @@ import React, { useState } from 'react';
 import {
   BookOpenIcon,
   SparklesIcon,
+  ShoppingCartIcon,
   Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import FridgeApp from './FridgeApp';
 import RecipeLibrary from './RecipeLibrary';
+import ShoppingList from './ShoppingList';
 
-type AppScreen = 'scanner' | 'library';
+type AppScreen = 'scanner' | 'library' | 'shopping';
 
 export default function CookingCompanionApp() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('scanner');
@@ -60,6 +62,18 @@ export default function CookingCompanionApp() {
                 <BookOpenIcon className="w-5 h-5" />
                 Recipe Library
               </button>
+
+              <button
+                onClick={() => setCurrentScreen('shopping')}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold transition-all ${
+                  currentScreen === 'shopping'
+                    ? 'bg-white text-orange-600 shadow-lg'
+                    : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
+                }`}
+              >
+                <ShoppingCartIcon className="w-5 h-5" />
+                Shopping List
+              </button>
             </div>
 
             {/* Mobile Menu Button */}
@@ -107,6 +121,21 @@ export default function CookingCompanionApp() {
                 <BookOpenIcon className="w-5 h-5" />
                 Recipe Library
               </button>
+
+              <button
+                onClick={() => {
+                  setCurrentScreen('shopping');
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all ${
+                  currentScreen === 'shopping'
+                    ? 'bg-white text-orange-600 shadow-lg'
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
+              >
+                <ShoppingCartIcon className="w-5 h-5" />
+                Shopping List
+              </button>
             </div>
           )}
         </div>
@@ -116,8 +145,10 @@ export default function CookingCompanionApp() {
       <main>
         {currentScreen === 'scanner' ? (
           <FridgeApp onNavigateToLibrary={() => setCurrentScreen('library')} />
-        ) : (
+        ) : currentScreen === 'library' ? (
           <RecipeLibrary />
+        ) : (
+          <ShoppingList />
         )}
       </main>
     </div>

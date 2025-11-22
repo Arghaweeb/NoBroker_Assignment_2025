@@ -10,6 +10,7 @@ import {
   PencilIcon,
   TrashIcon,
   ShareIcon,
+  ShoppingCartIcon,
   DocumentDuplicateIcon,
   CheckIcon,
   FolderIcon,
@@ -26,6 +27,7 @@ import {
   toggleFavorite,
   markAsCooked,
   getLibrary,
+  addRecipeToShoppingList,
 } from '../utils/recipe-library-storage';
 
 interface RecipeDetailViewProps {
@@ -51,6 +53,7 @@ export default function RecipeDetailView({
   const [rating, setRating] = useState(recipe.rating || 0);
   const [collections, setCollections] = useState<RecipeCollection[]>([]);
   const [showCopied, setShowCopied] = useState(false);
+  const [showAddedToList, setShowAddedToList] = useState(false);
 
   React.useEffect(() => {
     const library = getLibrary();
@@ -129,6 +132,12 @@ ${recipe.personalNotes ? `\nPERSONAL NOTES:\n${recipe.personalNotes}` : ''}
     URL.revokeObjectURL(url);
   };
 
+  const handleAddToShoppingList = () => {
+    addRecipeToShoppingList(recipe.id);
+    setShowAddedToList(true);
+    setTimeout(() => setShowAddedToList(false), 2000);
+  };
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
       month: 'long',
@@ -152,6 +161,18 @@ ${recipe.personalNotes ? `\nPERSONAL NOTES:\n${recipe.personalNotes}` : ''}
             </button>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleAddToShoppingList}
+                className="p-2 rounded-full bg-white border-2 border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-400 transition-all relative"
+                title="Add to shopping list"
+              >
+                {showAddedToList ? (
+                  <CheckIcon className="w-5 h-5 text-green-600" />
+                ) : (
+                  <ShoppingCartIcon className="w-5 h-5" />
+                )}
+              </button>
+
               <button
                 onClick={handleCopyRecipe}
                 className="p-2 rounded-full bg-white border-2 border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-400 transition-all relative"

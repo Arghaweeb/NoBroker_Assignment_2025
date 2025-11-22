@@ -8,6 +8,8 @@ import {
   RecipeCollection,
   RecipeLibraryState,
   RecipeImportData,
+  ShoppingListItem,
+  ShoppingListState,
 } from '../types/recipe-library';
 
 const STORAGE_KEY = 'cooking_companion_recipe_library_v1';
@@ -413,4 +415,258 @@ export function searchRecipes(
   }
 
   return results;
+}
+
+// ===== SHOPPING LIST STORAGE =====
+
+const SHOPPING_LIST_STORAGE_KEY = 'cooking_companion_shopping_list_v1';
+
+/**
+ * Initialize shopping list with default structure if it doesn't exist
+ */
+export function initializeShoppingList(): ShoppingListState {
+  const stored = localStorage.getItem(SHOPPING_LIST_STORAGE_KEY);
+
+  if (stored) {
+    try {
+      return JSON.parse(stored) as ShoppingListState;
+    } catch (error) {
+      console.error('Error parsing shopping list:', error);
+    }
+  }
+
+  // Create new shopping list
+  const newShoppingList: ShoppingListState = {
+    items: [],
+    lastUpdated: Date.now(),
+  };
+
+  saveShoppingList(newShoppingList);
+  return newShoppingList;
+}
+
+/**
+ * Save shopping list state to localStorage
+ */
+export function saveShoppingList(state: ShoppingListState): void {
+  try {
+    localStorage.setItem(SHOPPING_LIST_STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    console.error('Error saving shopping list:', error);
+    throw new Error('Failed to save shopping list');
+  }
+}
+
+/**
+ * Get current shopping list state
+ */
+export function getShoppingList(): ShoppingListState {
+  return initializeShoppingList();
+}
+
+/**
+ * Add ingredients from a recipe to shopping list
+ */
+export function addRecipeToShoppingList(recipeId: string): boolean {
+  const recipe = getRecipe(recipeId);
+  if (!recipe) {
+    return false;
+  }
+
+  const shoppingList = getShoppingList();
+
+  // Add each ingredient from the recipe
+  recipe.ingredients.forEach((ingredient) => {
+    // Check if ingredient already exists in shopping list
+    const existingItem = shoppingList.items.find(
+      (item) => item.ingredient.toLowerCase() === ingredient.toLowerCase()
+    );
+
+    if (existingItem) {
+      // Add recipe ID if not already tracked
+      if (!existingItem.recipeIds.includes(recipeId)) {
+        existingItem.recipeIds.push(recipeId);
+      }
+    } else {
+      // Create new shopping list item
+      const newItem: ShoppingListItem = {
+        id: generateId(),
+        ingredient,
+        recipeIds: [recipeId],
+        checked: false,
+        addedAt: Date.now(),
+      };
+      shoppingList.items.push(newItem);
+    }
+  });
+
+  shoppingList.lastUpdated = Date.now();
+  saveShoppingList(shoppingList);
+  return true;
+}
+
+/**
+ * Add a single ingredient to shopping list
+ */
+export function addIngredientToShoppingList(
+  ingredient: string,
+  quantity?: string,
+  notes?: string
+): ShoppingListItem {
+  const shoppingList = getShoppingList();
+
+  const newItem: ShoppingListItem = {
+    id: generateId(),
+    ingredient,
+    quantity,
+    notes,
+    recipeIds: [],
+    checked: false,
+    addedAt: Date.now(),
+  };
+
+  shoppingList.items.push(newItem);
+  shoppingList.lastUpdated = Date.now();
+  saveShoppingList(shoppingList);
+  return newItem;
+}
+
+/**
+ * Update a shopping list item
+ */
+export function updateShoppingListItem(
+  itemId: string,
+  updates: Partial<ShoppingListItem>
+): ShoppingListItem | null {
+  const shoppingList = getShoppingList();
+  const index = shoppingList.items.findIndex((item) => item.id === itemId);
+
+  if (index === -1) {
+    return null;
+  }
+
+  shoppingList.items[index] = {
+    ...shoppingList.items[index],
+    ...updates,
+  };
+
+  shoppingList.lastUpdated = Date.now();
+  saveShoppingList(shoppingList);
+  return shoppingList.items[index];
+}
+
+/**
+ * Toggle checked status of an item
+ */
+export function toggleShoppingListItem(itemId: string): ShoppingListItem | null {
+  const shoppingList = getShoppingList();
+  const item = shoppingList.items.find((item) => item.id === itemId);
+
+  if (!item) {
+    return null;
+  }
+
+  return updateShoppingListItem(itemId, {
+    checked: !item.checked,
+  });
+}
+
+/**
+ * Remove an item from shopping list
+ */
+export function removeShoppingListItem(itemId: string): boolean {
+  const shoppingList = getShoppingList();
+  const index = shoppingList.items.findIndex((item) => item.id === itemId);
+
+  if (index === -1) {
+    return false;
+  }
+
+  shoppingList.items.splice(index, 1);
+  shoppingList.lastUpdated = Date.now();
+  saveShoppingList(shoppingList);
+  return true;
+}
+
+/**
+ * Clear all checked items from shopping list
+ */
+export function clearCheckedItems(): number {
+  const shoppingList = getShoppingList();
+  const initialCount = shoppingList.items.length;
+
+  shoppingList.items = shoppingList.items.filter((item) => !item.checked);
+
+  shoppingList.lastUpdated = Date.now();
+  saveShoppingList(shoppingList);
+  return initialCount - shoppingList.items.length;
+}
+
+/**
+ * Clear entire shopping list
+ */
+export function clearShoppingList(): void {
+  const emptyList: ShoppingListState = {
+    items: [],
+    lastUpdated: Date.now(),
+  };
+  saveShoppingList(emptyList);
+}
+
+/**
+ * Export shopping list as text for sharing
+ */
+export function exportShoppingListAsText(): string {
+  const shoppingList = getShoppingList();
+  const library = getLibrary();
+
+  if (shoppingList.items.length === 0) {
+    return 'Shopping list is empty';
+  }
+
+  let text = '🛒 Shopping List\n\n';
+
+  // Group items by recipe
+  const itemsByRecipe = new Map<string, ShoppingListItem[]>();
+  const manualItems: ShoppingListItem[] = [];
+
+  shoppingList.items.forEach((item) => {
+    if (item.recipeIds.length === 0) {
+      manualItems.push(item);
+    } else {
+      item.recipeIds.forEach((recipeId) => {
+        if (!itemsByRecipe.has(recipeId)) {
+          itemsByRecipe.set(recipeId, []);
+        }
+        itemsByRecipe.get(recipeId)!.push(item);
+      });
+    }
+  });
+
+  // Add recipe-based items
+  itemsByRecipe.forEach((items, recipeId) => {
+    const recipe = library.recipes.find((r) => r.id === recipeId);
+    const recipeName = recipe ? recipe.title : 'Unknown Recipe';
+    text += `📖 ${recipeName}:\n`;
+    items.forEach((item) => {
+      const check = item.checked ? '✓' : '○';
+      text += `  ${check} ${item.ingredient}\n`;
+    });
+    text += '\n';
+  });
+
+  // Add manual items
+  if (manualItems.length > 0) {
+    text += '📝 Other Items:\n';
+    manualItems.forEach((item) => {
+      const check = item.checked ? '✓' : '○';
+      const quantity = item.quantity ? ` (${item.quantity})` : '';
+      text += `  ${check} ${item.ingredient}${quantity}\n`;
+      if (item.notes) {
+        text += `     Note: ${item.notes}\n`;
+      }
+    });
+  }
+
+  return text;
 }
