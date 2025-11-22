@@ -1,7 +1,7 @@
 'use client';
 
-import FridgeApp from './components/FridgeApp';
+import CookingCompanionApp from './components/CookingCompanionApp';
 
 export default function Page() {
-	return <FridgeApp />;
+	return <CookingCompanionApp />;
 }
