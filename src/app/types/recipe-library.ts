@@ -82,3 +82,18 @@ export interface RecipeSearchParams {
   minRating?: number;
   maxCookTime?: number; // in minutes
 }
+
+export interface ShoppingListItem {
+  id: string;
+  ingredient: string;
+  quantity?: string;
+  recipeIds: string[]; // Which recipes need this ingredient
+  checked: boolean;
+  addedAt: number; // timestamp
+  notes?: string; // Optional notes for the item
+}
+
+export interface ShoppingListState {
+  items: ShoppingListItem[];
+  lastUpdated: number;
+}
