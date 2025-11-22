@@ -3,6 +3,18 @@
  * Defines the data structure for saved recipes, collections, and library management
  */
 
+export interface TimerInfo {
+  duration: number; // Duration in seconds
+  label?: string; // Optional label like "Bake", "Simmer", "Rest"
+  autoStart?: boolean; // Whether to auto-start when step is reached
+}
+
+export interface RecipeStep {
+  text: string; // Instruction text
+  suggestedTimer?: TimerInfo; // Optional timer for this step
+  notes?: string; // Additional notes or tips
+}
+
 export interface SavedRecipe {
   id: string;
   title: string;
@@ -10,7 +22,8 @@ export interface SavedRecipe {
   cookTime: string;
   servings: number;
   ingredients: string[];
-  instructions: string[];
+  instructions: string[]; // Legacy support
+  steps?: RecipeStep[]; // Enhanced steps with timer support (preferred over instructions)
 
   // Library-specific metadata
   savedAt: number; // timestamp
