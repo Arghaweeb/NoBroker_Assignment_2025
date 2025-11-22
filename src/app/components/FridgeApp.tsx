@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, X, Clock, Users, Copy, Download } from "lucide-react";
 import * as emoji from "node-emoji";
 
-// Types
+// ---------- Types ----------
 interface Ingredient {
   id: string;
   name: string;
@@ -20,9 +20,12 @@ interface Recipe {
   instructions: string[];
   matchPercentage: number;
   missingIngredients?: string[];
+
+  // Smart suggestions / learning
+  personalScore?: number;
+  canCookNow?: boolean;
 }
 
-// API response types
 interface ApiRecipe {
   title: string;
   description: string;
@@ -36,7 +39,19 @@ interface ApiResponse {
   recipes: ApiRecipe[];
 }
 
-// Ingredient data with custom illustrations
+interface TasteProfile {
+  ingredientUsage: Record<string, number>;
+  sessions: number;
+}
+
+interface AddOnSuggestion {
+  name: string;
+  unlocks: number;
+}
+
+const TASTE_PROFILE_STORAGE_KEY = "fridge_taste_profile_v1";
+
+// ---------- Ingredient base data ----------
 const INGREDIENT_DATA = [
   { name: "egg", category: "Protein" },
   { name: "tomato", category: "Vegetable" },
@@ -48,7 +63,6 @@ const INGREDIENT_DATA = [
   { name: "pasta", category: "Grain" },
 ];
 
-// Extended ingredient suggestions for autocomplete
 const INGREDIENT_SUGGESTIONS = [
   "egg",
   "tomato",
@@ -104,7 +118,59 @@ const INGREDIENT_SUGGESTIONS = [
   "rosemary",
 ];
 
-// Function to find emoji for ingredients
+// Smart Scan presets (for demo)
+const SCAN_PRESETS: {
+  id: string;
+  label: string;
+  emoji: string;
+  description: string;
+  ingredients: string[];
+}[] = [
+  {
+    id: "indian-basic",
+    label: "Typical Indian Fridge",
+    emoji: "🍛",
+    description: "Onion, tomato, rice, yogurt, spices, eggs",
+    ingredients: ["onion", "tomato", "rice", "egg", "garlic", "butter"],
+  },
+  {
+    id: "breakfast-quick",
+    label: "Quick Breakfast",
+    emoji: "🍳",
+    description: "Eggs, bread, butter, cheese, milk",
+    ingredients: ["egg", "bread", "butter", "cheese", "milk"],
+  },
+  {
+    id: "pasta-night",
+    label: "Pasta Night",
+    emoji: "🍝",
+    description: "Pasta, tomato, cheese, garlic, onion",
+    ingredients: ["pasta", "tomato", "cheese", "garlic", "onion"],
+  },
+];
+
+// ---------- LocalStorage helpers ----------
+const loadTasteProfile = (): TasteProfile | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(TASTE_PROFILE_STORAGE_KEY);
+    if (!stored) return null;
+    return JSON.parse(stored) as TasteProfile;
+  } catch {
+    return null;
+  }
+};
+
+const saveTasteProfile = (profile: TasteProfile) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(TASTE_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+  } catch {
+    // ignore
+  }
+};
+
+// ---------- Emoji & Ingredient helpers ----------
 const findEmojiForIngredient = (ingredientName: string): string => {
   const emojiMap: { [key: string]: string } = {
     egg: "🥚",
@@ -163,29 +229,49 @@ const findEmojiForIngredient = (ingredientName: string): string => {
 
   const normalizedName = ingredientName.toLowerCase().trim();
 
-  // Check direct mapping first
-  if (emojiMap[normalizedName]) {
-    return emojiMap[normalizedName];
-  }
+  if (emojiMap[normalizedName]) return emojiMap[normalizedName];
 
-  // Try to find emoji using node-emoji library
   const foundEmoji = emoji.find(normalizedName);
-  if (foundEmoji) {
-    return foundEmoji.emoji;
-  }
+  if (foundEmoji) return foundEmoji.emoji;
 
-  // Check if the ingredient contains any of our known ingredients
   for (const [key, value] of Object.entries(emojiMap)) {
     if (normalizedName.includes(key) || key.includes(normalizedName)) {
       return value;
     }
   }
 
-  // Default fallback
   return "🥄";
 };
 
-// Custom CSS Ingredient Illustrations Component
+const createIngredient = (name: string): Ingredient => {
+  const normalized = name.toLowerCase().trim();
+  return {
+    id: `${normalized}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 7)}`,
+    name: normalized,
+    category:
+      INGREDIENT_DATA.find((item) => item.name === normalized)?.category ||
+      "Other",
+    emoji: findEmojiForIngredient(normalized),
+  };
+};
+
+// ---------- Image helper ----------
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") resolve(result);
+      else reject(new Error("Failed to read file"));
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+// ---------- Small UI components ----------
 const IngredientIllustration = ({
   type,
   size = "large",
@@ -393,9 +479,7 @@ const IngredientIllustration = ({
     ),
     rice: (
       <div className={`${baseSize} relative mx-auto`}>
-        <div
-          className={`${baseSize} bg-gradient-to-b from-blue-300 to-blue-400 rounded-lg border-4 border-blue-200 shadow-lg relative`}
-        >
+        <div className={`${baseSize} bg-gradient-to-b from-blue-300 to-blue-400 rounded-lg border-4 border-blue-200 shadow-lg relative`}>
           <div
             className={`absolute ${
               size === "large"
@@ -403,64 +487,20 @@ const IngredientIllustration = ({
                 : "top-1 left-1/2 transform -translate-x-1/2 w-3 h-2 md:w-6 md:h-4"
             } bg-white rounded-lg border border-gray-200`}
           >
-            <div
-              className={`absolute ${
-                size === "large"
-                  ? "top-0 left-0 w-1 h-1"
-                  : "top-0 left-0 w-1 h-1"
-              } bg-gray-100 rounded-full`}
-            ></div>
-            <div
-              className={`absolute ${
-                size === "large"
-                  ? "top-1 md:top-2 right-1 md:right-2 w-1 h-1"
-                  : "top-1 right-1 w-1 h-1"
-              } bg-gray-100 rounded-full`}
-            ></div>
-            <div
-              className={`absolute ${
-                size === "large"
-                  ? "bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1"
-                  : "bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1"
-              } bg-gray-100 rounded-full`}
-            ></div>
+            <div className="absolute top-0 left-0 w-1 h-1 bg-gray-100 rounded-full"></div>
+            <div className="absolute top-1 right-1 w-1 h-1 bg-gray-100 rounded-full"></div>
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-gray-100 rounded-full"></div>
           </div>
         </div>
       </div>
     ),
     pasta: (
       <div className={`${baseSize} relative mx-auto`}>
-        <div
-          className={`${baseSize} bg-gradient-to-b from-yellow-200 to-yellow-300 rounded-lg border-4 border-yellow-200 shadow-lg relative overflow-hidden`}
-        >
-          <div
-            className={`absolute ${
-              size === "large"
-                ? "top-1 left-1 w-1 md:w-2 h-6 md:h-12"
-                : "top-1 left-1 w-1 h-3 md:h-6"
-            } bg-yellow-400 rounded-full transform rotate-12`}
-          ></div>
-          <div
-            className={`absolute ${
-              size === "large"
-                ? "top-1 left-2 md:left-4 w-1 md:w-2 h-6 md:h-12"
-                : "top-1 left-2 w-1 h-3 md:h-6"
-            } bg-yellow-400 rounded-full transform -rotate-12`}
-          ></div>
-          <div
-            className={`absolute ${
-              size === "large"
-                ? "top-1 left-4 md:left-7 w-1 md:w-2 h-6 md:h-12"
-                : "top-1 left-3 w-1 h-3 md:h-6"
-            } bg-yellow-400 rounded-full transform rotate-6`}
-          ></div>
-          <div
-            className={`absolute ${
-              size === "large"
-                ? "top-1 right-1 md:right-3 w-1 md:w-2 h-6 md:h-12"
-                : "top-1 right-1 w-1 h-3 md:h-6"
-            } bg-yellow-400 rounded-full transform -rotate-6`}
-          ></div>
+        <div className={`${baseSize} bg-gradient-to-b from-yellow-200 to-yellow-300 rounded-lg border-4 border-yellow-200 shadow-lg relative overflow-hidden`}>
+          <div className="absolute top-1 left-1 w-1 md:w-2 h-6 md:h-12 bg-yellow-400 rounded-full transform rotate-12"></div>
+          <div className="absolute top-1 left-4 md:left-4 w-1 md:w-2 h-6 md:h-12 bg-yellow-400 rounded-full transform -rotate-12"></div>
+          <div className="absolute top-1 left-7 md:left-7 w-1 md:w-2 h-6 md:h-12 bg-yellow-400 rounded-full transform rotate-6"></div>
+          <div className="absolute top-1 right-1 md:right-3 w-1 md:w-2 h-6 md:h-12 bg-yellow-400 rounded-full transform -rotate-6"></div>
         </div>
       </div>
     ),
@@ -469,16 +509,12 @@ const IngredientIllustration = ({
   return illustrations[type as keyof typeof illustrations] || illustrations.egg;
 };
 
-// Fridge Icon Component
 const FridgeIcon = () => (
   <div className="w-20 h-24 bg-orange-600 rounded-2xl shadow-2xl border-4 border-orange-500 relative overflow-hidden mx-auto">
-    {/* Fridge body */}
     <div className="absolute inset-2 bg-gray-100 rounded-lg">
-      {/* Shelves */}
       <div className="absolute top-2 left-1 right-1 h-1 bg-gray-300 rounded"></div>
       <div className="absolute bottom-6 left-1 right-1 h-1 bg-gray-300 rounded"></div>
 
-      {/* Mini ingredients inside */}
       <div className="absolute top-3 left-1">
         <div className="w-3 h-3 bg-red-400 rounded-full"></div>
       </div>
@@ -493,12 +529,10 @@ const FridgeIcon = () => (
       </div>
     </div>
 
-    {/* Door handle */}
     <div className="absolute right-1 top-1/2 transform -translate-y-1/2 w-1 h-4 bg-gray-400 rounded-full"></div>
   </div>
 );
 
-// Function to check if user has ingredient
 const userHasIngredient = (
   userIngredients: string[],
   recipeIngredient: string
@@ -506,7 +540,6 @@ const userHasIngredient = (
   const userIngredientsLower = userIngredients.map((ing) => ing.toLowerCase());
   const recipeIngLower = recipeIngredient.toLowerCase();
 
-  // Remove common words and quantities from recipe ingredient
   const cleanRecipeIng = recipeIngLower
     .replace(
       /^\d+(\.\d+)?\s*(cups?|tbsp|tablespoons?|tsp|teaspoons?|lbs?|pounds?|oz|ounces?|grams?|kg|ml|liters?|cloves?|pieces?)\s*/g,
@@ -519,18 +552,11 @@ const userHasIngredient = (
     )
     .trim();
 
-  // Check if any user ingredient matches
   return userIngredientsLower.some((userIng) => {
-    // Direct match
     if (userIng === cleanRecipeIng) return true;
-
-    // Check if recipe ingredient contains user ingredient
     if (cleanRecipeIng.includes(userIng)) return true;
-
-    // Check if user ingredient contains recipe ingredient
     if (userIng.includes(cleanRecipeIng)) return true;
 
-    // Check main words (longer than 3 characters)
     const recipeWords = cleanRecipeIng
       .split(" ")
       .filter((word) => word.length > 3);
@@ -542,12 +568,10 @@ const userHasIngredient = (
   });
 };
 
-// Function to calculate match percentage
 const calculateMatchPercentage = (
   userIngredients: string[],
   recipeIngredients: string[]
 ): number => {
-  // Filter out common pantry items from calculation
   const pantryItems = [
     "salt",
     "pepper",
@@ -572,12 +596,10 @@ const calculateMatchPercentage = (
   return Math.round((matchCount / relevantIngredients.length) * 100);
 };
 
-// Function to find missing ingredients
 const findMissingIngredients = (
   userIngredients: string[],
   recipeIngredients: string[]
 ): string[] => {
-  // Filter out common pantry items
   const pantryItems = [
     "salt",
     "pepper",
@@ -591,19 +613,62 @@ const findMissingIngredients = (
   const missingIngredients = recipeIngredients.filter((ingredient) => {
     const lowerIng = ingredient.toLowerCase();
 
-    // Skip pantry items
     if (pantryItems.some((pantryItem) => lowerIng.includes(pantryItem))) {
       return false;
     }
 
-    // Check if user doesn't have this ingredient
     return !userHasIngredient(userIngredients, ingredient);
   });
 
-  return missingIngredients.slice(0, 3); // Show max 3 missing ingredients
+  return missingIngredients.slice(0, 3);
 };
 
-// Real API call to generate recipes using OpenAI
+const computePersonalScore = (
+  recipe: Recipe,
+  profile: TasteProfile | null
+): number => {
+  let score = recipe.matchPercentage;
+  if (!profile) return score;
+
+  const usage = profile.ingredientUsage;
+  let boost = 0;
+
+  recipe.ingredients.forEach((ingredient) => {
+    const normalized = ingredient.toLowerCase();
+    Object.keys(usage).forEach((fav) => {
+      if (normalized.includes(fav)) {
+        boost += Math.min(usage[fav], 5);
+      }
+    });
+  });
+
+  return score + Math.min(boost, 20);
+};
+
+const computeAddOnSuggestions = (
+  recipes: Recipe[],
+  userIngredients: string[]
+): AddOnSuggestion[] => {
+  const userSet = new Set(userIngredients.map((i) => i.toLowerCase()));
+  const counts: Record<string, number> = {};
+
+  recipes.forEach((recipe) => {
+    (recipe.missingIngredients || []).forEach((missing) => {
+      const key = missing.toLowerCase();
+      if (userSet.has(key)) return;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+  });
+
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([name, unlocks]) => ({
+      name,
+      unlocks,
+    }));
+};
+
 const generateRecipes = async (
   ingredientNames: string[]
 ): Promise<Recipe[]> => {
@@ -624,26 +689,245 @@ const generateRecipes = async (
 
   const data: ApiResponse = await response.json();
 
-  // Transform API response to match our Recipe interface
   return data.recipes.map((recipe: ApiRecipe, index: number) => ({
     id: (index + 1).toString(),
     title: recipe.title,
     description: recipe.description,
-    cookTime: recipe.cookingTime || "30 min", // Map cookingTime to cookTime
+    cookTime: recipe.cookingTime || "30 min",
     servings: recipe.servings,
     ingredients: recipe.ingredients,
     instructions: recipe.instructions,
-    matchPercentage: calculateMatchPercentage(
-      ingredientNames,
-      recipe.ingredients
-    ),
-    missingIngredients: findMissingIngredients(
-      ingredientNames,
-      recipe.ingredients
-    ),
+    matchPercentage: 0,
+    missingIngredients: [],
   }));
 };
 
+// Add-on suggestions bar
+const AddOnSuggestionsBar: React.FC<{
+  suggestions: AddOnSuggestion[];
+  onAddIngredient: (name: string) => void;
+}> = ({ suggestions, onAddIngredient }) => {
+  if (!suggestions.length) return null;
+
+  return (
+    <div className="mb-4 p-3 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-2xl shadow-sm">
+      <p className="font-poppins font-semibold text-orange-900 text-sm mb-2">
+        ⭐ Upscale your dishes by adding:
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {suggestions.map((sug) => (
+          <button
+            key={sug.name}
+            onClick={() => onAddIngredient(sug.name)}
+            className="flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-orange-200 shadow-sm text-xs font-poppins font-medium text-orange-900 hover:bg-orange-50 transition"
+          >
+            <span className="text-base">
+              {findEmojiForIngredient(sug.name)}
+            </span>
+            <span className="capitalize">{sug.name}</span>
+            <span className="text-[10px] text-orange-600">
+              unlocks {sug.unlocks} dish
+              {sug.unlocks > 1 ? "es" : ""}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Scan modal (image upload + presets)
+const ScanModal: React.FC<{
+  onClose: () => void;
+  onApplyPreset: (ingredients: string[]) => void;
+  onScanImage: (file: File) => Promise<void>;
+  scanLoading: boolean;
+  scanError: string | null;
+}> = ({ onClose, onApplyPreset, onScanImage, scanLoading, scanError }) => {
+  const handleFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await onScanImage(file);
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-40 px-4">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-5 border-2 border-orange-200 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 p-1 rounded-full bg-orange-50 hover:bg-orange-100 border border-orange-200"
+        >
+          <X className="w-4 h-4 text-orange-700" />
+        </button>
+
+        <h3 className="font-poppins font-bold text-lg text-orange-900 mb-2">
+          Smart Scan
+        </h3>
+        <p className="font-poppins text-xs text-orange-700 mb-4">
+          Upload a photo of your fridge or groceries, or use a quick preset.
+        </p>
+
+        {/* Image upload */}
+        <div className="mb-4 p-3 border border-dashed border-orange-300 rounded-2xl bg-orange-50">
+          <label className="flex flex-col items-center gap-2 cursor-pointer">
+            <span className="text-2xl">📷</span>
+            <span className="font-poppins text-xs text-orange-800 text-center">
+              {scanLoading
+                ? "Scanning items in your image..."
+                : "Tap to upload a photo of your fridge"}
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+              disabled={scanLoading}
+            />
+          </label>
+          {scanError && (
+            <p className="mt-2 text-xs text-red-600 font-poppins">
+              {scanError}
+            </p>
+          )}
+        </div>
+
+        <p className="font-poppins text-xs text-orange-700 mb-2">
+          Or try a preset fridge:
+        </p>
+
+        <div className="space-y-2">
+          {SCAN_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              onClick={() => onApplyPreset(preset.ingredients)}
+              className="w-full flex items-start gap-3 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-2xl px-3 py-2 text-left transition"
+            >
+              <div className="text-2xl mt-1">{preset.emoji}</div>
+              <div>
+                <div className="font-poppins font-semibold text-orange-900 text-sm">
+                  {preset.label}
+                </div>
+                <div className="font-poppins text-xs text-orange-700">
+                  {preset.description}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Recipe card
+const RecipeCard: React.FC<{
+  recipe: Recipe;
+  copyRecipe: (recipe: Recipe) => void;
+  downloadRecipe: (recipe: Recipe) => void;
+}> = ({ recipe, copyRecipe, downloadRecipe }) => {
+  return (
+    <div className="bg-gradient-to-br from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-2xl p-5 shadow-lg">
+      <h3 className="font-poppins font-bold text-xl text-orange-900 mb-2">
+        {recipe.title}
+      </h3>
+      <p className="font-poppins font-medium text-orange-700 text-sm mb-4">
+        {recipe.description}
+      </p>
+
+      <div className="flex items-center gap-4 mb-3 text-sm flex-wrap">
+        <div className="flex items-center gap-1 bg-white rounded-full px-3 py-1 shadow-sm">
+          <Clock className="w-4 h-4 text-orange-600" />
+          <span className="font-poppins font-semibold text-orange-800">
+            {recipe.cookTime}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 bg-white rounded-full px-3 py-1 shadow-sm">
+          <Users className="w-4 h-4 text-orange-600" />
+          <span className="font-poppins font-semibold text-orange-800">
+            {recipe.servings} servings
+          </span>
+        </div>
+        <div
+          className={`flex items-center gap-1 bg-white rounded-full px-3 py-1 shadow-sm ${
+            recipe.matchPercentage >= 80
+              ? "bg-green-50"
+              : recipe.matchPercentage >= 60
+              ? "bg-yellow-50"
+              : "bg-red-50"
+          }`}
+        >
+          <div
+            className={`w-3 h-3 rounded-full ${
+              recipe.matchPercentage >= 80
+                ? "bg-gradient-to-r from-green-400 to-green-500"
+                : recipe.matchPercentage >= 60
+                ? "bg-gradient-to-r from-yellow-400 to-yellow-500"
+                : "bg-gradient-to-r from-red-400 to-red-500"
+            }`}
+          ></div>
+          <span className="font-poppins font-semibold text-orange-800 text-xs">
+            {recipe.matchPercentage}% match
+          </span>
+        </div>
+      </div>
+
+      {recipe.missingIngredients && recipe.missingIngredients.length > 0 && (
+        <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+          <h5 className="font-poppins font-semibold text-orange-900 text-sm mb-2 flex items-center gap-2">
+            🛒 Missing ingredients:
+          </h5>
+          <div className="flex flex-wrap gap-2">
+            {recipe.missingIngredients.map((ingredient, index) => (
+              <span
+                key={index}
+                className="font-poppins font-medium text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full border border-orange-200"
+              >
+                {ingredient}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 p-3 bg-white rounded-lg border border-orange-200">
+        <h4 className="font-poppins font-bold text-orange-900 mb-2">
+          Instructions:
+        </h4>
+        <ol className="font-poppins font-medium text-sm text-orange-800 space-y-1">
+          {recipe.instructions.map((step, stepIndex) => (
+            <li key={stepIndex} className="flex gap-2">
+              <span className="font-poppins font-semibold text-orange-600">
+                {stepIndex + 1}.
+              </span>
+              <span className="font-poppins font-medium">{step}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div className="flex gap-2 mt-4">
+        <button
+          onClick={() => copyRecipe(recipe)}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg font-poppins font-medium text-sm hover:from-orange-600 hover:to-yellow-600 transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+        >
+          <Copy className="w-4 h-4" />
+          Copy Recipe
+        </button>
+        <button
+          onClick={() => downloadRecipe(recipe)}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg font-poppins font-medium text-sm hover:from-red-600 hover:to-orange-600 transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+        >
+          <Download className="w-4 h-4" />
+          Download
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ---------- Main component ----------
 const FridgeApp: React.FC = () => {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [newIngredient, setNewIngredient] = useState("");
@@ -656,7 +940,38 @@ const FridgeApp: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Copy recipe to clipboard
+  const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(null);
+  const [addOnSuggestions, setAddOnSuggestions] = useState<AddOnSuggestion[]>(
+    []
+  );
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = loadTasteProfile();
+    if (stored) setTasteProfile(stored);
+  }, []);
+
+  const updateTasteProfileForSearch = (ingredientNames: string[]) => {
+    setTasteProfile((prev) => {
+      const next: TasteProfile = prev
+        ? {
+            ingredientUsage: { ...prev.ingredientUsage },
+            sessions: prev.sessions + 1,
+          }
+        : { ingredientUsage: {}, sessions: 1 };
+
+      ingredientNames.forEach((name) => {
+        const key = name.toLowerCase();
+        next.ingredientUsage[key] = (next.ingredientUsage[key] || 0) + 1;
+      });
+
+      saveTasteProfile(next);
+      return next;
+    });
+  };
+
   const copyRecipe = (recipe: Recipe) => {
     const recipeText = `
 ${recipe.title}
@@ -682,15 +997,9 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
 
     navigator.clipboard
       .writeText(recipeText)
-      .then(() => {
-        // Could add a toast notification here
-      })
-      .catch((err) => {
-        console.error("Failed to copy recipe:", err);
-      });
+      .catch((err) => console.error("Failed to copy recipe:", err));
   };
 
-  // Download recipe as text file
   const downloadRecipe = (recipe: Recipe) => {
     const recipeText = `
 ${recipe.title}
@@ -727,7 +1036,6 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
     URL.revokeObjectURL(url);
   };
 
-  // Filter suggestions based on input
   const handleInputChange = (value: string) => {
     setNewIngredient(value);
     if (value.trim()) {
@@ -735,7 +1043,7 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
         (suggestion) =>
           suggestion.toLowerCase().includes(value.toLowerCase()) &&
           !ingredients.some((ing) => ing.name === suggestion.toLowerCase())
-      ).slice(0, 5); // Show max 5 suggestions
+      ).slice(0, 5);
       setSuggestions(filtered);
       setShowSuggestions(filtered.length > 0);
     } else {
@@ -746,27 +1054,85 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
 
   const addIngredient = (name: string) => {
     if (!name.trim()) return;
+    const normalized = name.toLowerCase().trim();
 
-    const ingredient: Ingredient = {
-      id: Date.now().toString(),
-      name: name.toLowerCase(),
-      category:
-        INGREDIENT_DATA.find((item) => item.name === name)?.category || "Other",
-      emoji: findEmojiForIngredient(name),
-    };
+    setIngredients((prev) => {
+      if (prev.some((ing) => ing.name === normalized)) return prev;
+      return [...prev, createIngredient(normalized)];
+    });
 
-    setIngredients((prev) => [...prev, ingredient]);
     setNewIngredient("");
     setSuggestions([]);
     setShowSuggestions(false);
   };
 
-  const selectSuggestion = (suggestion: string) => {
-    addIngredient(suggestion);
-  };
+  const selectSuggestion = (suggestion: string) => addIngredient(suggestion);
 
   const removeIngredient = (id: string) => {
     setIngredients((prev) => prev.filter((ing) => ing.id !== id));
+  };
+
+  const applyScanPreset = (presetIngredients: string[]) => {
+    setIngredients((prev) => {
+      const existingNames = new Set(prev.map((i) => i.name.toLowerCase()));
+      const newItems: Ingredient[] = [];
+
+      presetIngredients.forEach((name) => {
+        const normalized = name.toLowerCase().trim();
+        if (!existingNames.has(normalized)) {
+          newItems.push(createIngredient(normalized));
+          existingNames.add(normalized);
+        }
+      });
+
+      return [...prev, ...newItems];
+    });
+
+    setShowScanModal(false);
+  };
+
+  const handleScanImage = async (file: File) => {
+    try {
+      setScanLoading(true);
+      setScanError(null);
+
+      const dataUrl = await fileToBase64(file);
+      const base64 = dataUrl.split(",")[1];
+
+      const res = await fetch("/api/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: base64 }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to scan image");
+      }
+
+      const json = await res.json();
+      const ingredientsFromImage: string[] = json.ingredients || [];
+
+      if (!ingredientsFromImage.length) {
+        throw new Error("No items detected in the image");
+      }
+
+      setIngredients((prev) => {
+        const existingNames = new Set(prev.map((i) => i.name.toLowerCase()));
+        const newItems = ingredientsFromImage
+          .map((name) => name.toLowerCase().trim())
+          .filter((name) => name && !existingNames.has(name));
+
+        return [...prev, ...newItems.map((name) => createIngredient(name))];
+      });
+
+      setShowScanModal(false);
+    } catch (err: any) {
+      console.error("Scan failed:", err);
+      setScanError(err?.message || "Failed to scan items");
+    } finally {
+      setScanLoading(false);
+    }
   };
 
   const findRecipes = async () => {
@@ -778,19 +1144,52 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
 
     try {
       const ingredientNames = ingredients.map((ing) => ing.name);
-      const foundRecipes = await generateRecipes(ingredientNames);
+      updateTasteProfileForSearch(ingredientNames);
 
-      // Sort recipes by match percentage (highest first)
-      const sortedRecipes = foundRecipes.sort(
-        (a, b) => b.matchPercentage - a.matchPercentage
-      );
+      const rawRecipes = await generateRecipes(ingredientNames);
+
+      const enrichedRecipes: Recipe[] = rawRecipes.map((recipe) => {
+        const match = calculateMatchPercentage(
+          ingredientNames,
+          recipe.ingredients
+        );
+        const missing = findMissingIngredients(
+          ingredientNames,
+          recipe.ingredients
+        );
+
+        const enriched: Recipe = {
+          ...recipe,
+          matchPercentage: match,
+          missingIngredients: missing,
+        };
+
+        enriched.canCookNow = (missing || []).length === 0;
+        enriched.personalScore = computePersonalScore(enriched, tasteProfile);
+
+        return enriched;
+      });
+
+      const sortedRecipes = enrichedRecipes.sort((a, b) => {
+        const aScore = a.personalScore ?? a.matchPercentage;
+        const bScore = b.personalScore ?? b.matchPercentage;
+        return bScore - aScore;
+      });
+
       setRecipes(sortedRecipes);
+
+      const suggestions = computeAddOnSuggestions(
+        sortedRecipes,
+        ingredientNames
+      );
+      setAddOnSuggestions(suggestions);
     } catch (error) {
       console.error("Error finding recipes:", error);
       setError(
         error instanceof Error ? error.message : "Failed to generate recipes"
       );
       setRecipes([]);
+      setAddOnSuggestions([]);
     } finally {
       setLoading(false);
     }
@@ -801,16 +1200,23 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
     setError(null);
   };
 
+  const handleAddOnIngredientClick = (name: string) => {
+    addIngredient(name);
+    setCurrentScreen("ingredients");
+  };
+
+  const cookNowRecipes = recipes.filter((r) => r.canCookNow);
+  const almostThereRecipes = recipes.filter(
+    (r) => !r.canCookNow && (r.missingIngredients || []).length > 0
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-400 via-yellow-400 to-red-400 relative overflow-hidden text-orange-900">
       <div className="relative z-10 max-w-sm md:max-w-md lg:max-w-2xl xl:max-w-3xl mx-auto px-4 py-8">
-        {/* Ingredients Screen */}
         {currentScreen === "ingredients" && (
           <div className="space-y-8">
-            {/* Header */}
             <div className="text-center space-y-6">
               <FridgeIcon />
-
               <div>
                 <h1 className="font-poppins font-black text-2xl md:text-4xl lg:text-5xl text-orange-900 mb-4 leading-tight tracking-wide">
                   WHAT&apos;S IN YOUR
@@ -818,13 +1224,21 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
                   FRIDGE?
                 </h1>
                 <p className="font-poppins font-semibold text-orange-800 text-base md:text-lg max-w-md mx-auto leading-relaxed px-4 md:px-0">
-                  Add your ingredients and discover amazing recipes you can make
-                  right now!
+                  Add your ingredients or use smart scan, and discover amazing
+                  recipes you can make right now!
                 </p>
+              </div>
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setShowScanModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white bg-opacity-90 border-2 border-orange-300 shadow-md font-poppins font-semibold text-xs md:text-sm text-orange-900 hover:bg-orange-50 transition-all"
+                >
+                  <span className="text-lg">📷</span>
+                  <span>Smart Scan my fridge</span>
+                </button>
               </div>
             </div>
 
-            {/* Input Section */}
             <div className="relative mx-2 sm:mx-4 md:mx-0">
               <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-1 shadow-2xl border-2 sm:border-4 border-orange-300">
                 <div className="flex items-center">
@@ -852,7 +1266,6 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
                 </div>
               </div>
 
-              {/* Autocomplete Suggestions */}
               {showSuggestions && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl shadow-xl border-2 border-orange-200 z-50">
                   {suggestions.map((suggestion, index) => (
@@ -871,14 +1284,12 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
               )}
             </div>
 
-            {/* Ingredient Grid */}
             <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 max-w-lg md:max-w-2xl mx-auto">
               {INGREDIENT_DATA.map((item, index) => (
                 <button
                   key={index}
                   onClick={() => addIngredient(item.name)}
                   className={`bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl md:rounded-3xl p-2 md:p-6 text-center shadow-xl hover:bg-opacity-100 transition-all transform hover:scale-105 active:scale-95 border-2 border-white border-opacity-50 aspect-square flex flex-col items-center justify-center space-y-1 md:space-y-3 ${
-                    // Center the last row items in mobile view - put them in columns 2 and 3
                     index === 6
                       ? "md:col-auto col-start-2 col-end-3"
                       : index === 7
@@ -896,7 +1307,6 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
               ))}
             </div>
 
-            {/* Selected Ingredients */}
             {ingredients.length > 0 && (
               <div className="space-y-4">
                 <h3 className="font-poppins font-semibold text-xl text-orange-900 text-center">
@@ -924,7 +1334,6 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
               </div>
             )}
 
-            {/* Find Recipes Button */}
             {ingredients.length > 0 && (
               <button
                 onClick={findRecipes}
@@ -937,10 +1346,8 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
           </div>
         )}
 
-        {/* Recipes Screen */}
         {currentScreen === "recipes" && (
           <div className="space-y-6">
-            {/* Header with Back Button */}
             <div className="flex items-center gap-3 pb-4">
               <button
                 onClick={goBackToIngredients}
@@ -957,6 +1364,13 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
                 </p>
               </div>
             </div>
+
+            {addOnSuggestions.length > 0 && (
+              <AddOnSuggestionsBar
+                suggestions={addOnSuggestions}
+                onAddIngredient={handleAddOnIngredientClick}
+              />
+            )}
 
             {loading ? (
               <div className="bg-white bg-opacity-95 backdrop-blur-sm border-2 border-orange-200 rounded-3xl p-8 text-center shadow-2xl">
@@ -986,134 +1400,67 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
                 </p>
               </div>
             ) : (
-              <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 border-4 border-orange-200">
-                <h2 className="font-poppins font-black text-3xl text-orange-900 mb-6 text-center">
+              <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 border-4 border-orange-200 space-y-6">
+                <h2 className="font-poppins font-black text-3xl text-orange-900 text-center">
                   🍳 Recipe Suggestions
                 </h2>
 
-                <div className="space-y-6">
-                  {recipes.map((recipe) => (
-                    <div
-                      key={recipe.id}
-                      className="bg-gradient-to-br from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-2xl p-5 shadow-lg"
-                    >
-                      <h3 className="font-poppins font-bold text-xl text-orange-900 mb-2">
-                        {recipe.title}
-                      </h3>
-                      <p className="font-poppins font-medium text-orange-700 text-sm mb-4">
-                        {recipe.description}
-                      </p>
-
-                      <div className="flex items-center gap-4 mb-3 text-sm flex-wrap">
-                        <div className="flex items-center gap-1 bg-white rounded-full px-3 py-1 shadow-sm">
-                          <Clock className="w-4 h-4 text-orange-600" />
-                          <span className="font-poppins font-semibold text-orange-800">
-                            {recipe.cookTime}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-white rounded-full px-3 py-1 shadow-sm">
-                          <Users className="w-4 h-4 text-orange-600" />
-                          <span className="font-poppins font-semibold text-orange-800">
-                            {recipe.servings} servings
-                          </span>
-                        </div>
-                        <div
-                          className={`flex items-center gap-1 bg-white rounded-full px-3 py-1 shadow-sm ${
-                            recipe.matchPercentage >= 80
-                              ? "bg-green-50"
-                              : recipe.matchPercentage >= 60
-                              ? "bg-yellow-50"
-                              : "bg-red-50"
-                          }`}
-                        >
-                          <div
-                            className={`w-3 h-3 rounded-full ${
-                              recipe.matchPercentage >= 80
-                                ? "bg-gradient-to-r from-green-400 to-green-500"
-                                : recipe.matchPercentage >= 60
-                                ? "bg-gradient-to-r from-yellow-400 to-yellow-500"
-                                : "bg-gradient-to-r from-red-400 to-red-500"
-                            }`}
-                          ></div>
-                          <span className="font-poppins font-semibold text-orange-800 text-xs">
-                            {recipe.matchPercentage}% match
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Missing Ingredients */}
-                      {recipe.missingIngredients &&
-                        recipe.missingIngredients.length > 0 && (
-                          <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                            <h5 className="font-poppins font-semibold text-orange-900 text-sm mb-2 flex items-center gap-2">
-                              🛒 Missing ingredients:
-                            </h5>
-                            <div className="flex flex-wrap gap-2">
-                              {recipe.missingIngredients.map(
-                                (ingredient, index) => (
-                                  <span
-                                    key={index}
-                                    className="font-poppins font-medium text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full border border-orange-200"
-                                  >
-                                    {ingredient}
-                                  </span>
-                                )
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                      {/* Instructions */}
-                      <div className="mt-4 p-3 bg-white rounded-lg border border-orange-200">
-                        <h4 className="font-poppins font-bold text-orange-900 mb-2">
-                          Instructions:
-                        </h4>
-                        <ol className="font-poppins font-medium text-sm text-orange-800 space-y-1">
-                          {recipe.instructions.map((step, stepIndex) => (
-                            <li key={stepIndex} className="flex gap-2">
-                              <span className="font-poppins font-semibold text-orange-600">
-                                {stepIndex + 1}.
-                              </span>
-                              <span className="font-poppins font-medium">
-                                {step}
-                              </span>
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
-
-                      {/* Copy and Download buttons - moved to bottom */}
-                      <div className="flex gap-2 mt-4">
-                        <button
-                          onClick={() => copyRecipe(recipe)}
-                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg font-poppins font-medium text-sm hover:from-orange-600 hover:to-yellow-600 transition-all transform hover:scale-105 active:scale-95 shadow-lg"
-                        >
-                          <Copy className="w-4 h-4" />
-                          Copy Recipe
-                        </button>
-                        <button
-                          onClick={() => downloadRecipe(recipe)}
-                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg font-poppins font-medium text-sm hover:from-red-600 hover:to-orange-600 transition-all transform hover:scale-105 active:scale-95 shadow-lg"
-                        >
-                          <Download className="w-4 h-4" />
-                          Download
-                        </button>
-                      </div>
+                {cookNowRecipes.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="font-poppins font-semibold text-orange-900 text-sm">
+                      ✅ You can cook these right now
+                    </h3>
+                    <div className="space-y-4">
+                      {cookNowRecipes.map((recipe) => (
+                        <RecipeCard
+                          key={recipe.id}
+                          recipe={recipe}
+                          copyRecipe={copyRecipe}
+                          downloadRecipe={downloadRecipe}
+                        />
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
+
+                {almostThereRecipes.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="font-poppins font-semibold text-orange-900 text-sm">
+                      ✨ Almost there – add 1–2 items to unlock these
+                    </h3>
+                    <div className="space-y-4">
+                      {almostThereRecipes.map((recipe) => (
+                        <RecipeCard
+                          key={recipe.id}
+                          recipe={recipe}
+                          copyRecipe={copyRecipe}
+                          downloadRecipe={downloadRecipe}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {/* Copyright Footer */}
         <div className="mt-8 text-center">
           <p className="font-poppins text-sm text-orange-900">
             © 2025 Arghadeep Biswas. Created For NoBroker
           </p>
         </div>
       </div>
+
+      {showScanModal && (
+        <ScanModal
+          onClose={() => setShowScanModal(false)}
+          onApplyPreset={applyScanPreset}
+          onScanImage={handleScanImage}
+          scanLoading={scanLoading}
+          scanError={scanError}
+        />
+      )}
     </div>
   );
 };
