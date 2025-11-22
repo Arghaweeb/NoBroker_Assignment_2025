@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Plus, X, Clock, Users, Copy, Download } from "lucide-react";
+import { Plus, X, Clock, Users, Copy, Download, BookmarkPlus } from "lucide-react";
 import * as emoji from "node-emoji";
+import { addRecipe } from '../utils/recipe-library-storage';
 
 // ---------- Types ----------
 interface Ingredient {
@@ -826,7 +827,8 @@ const RecipeCard: React.FC<{
   recipe: Recipe;
   copyRecipe: (recipe: Recipe) => void;
   downloadRecipe: (recipe: Recipe) => void;
-}> = ({ recipe, copyRecipe, downloadRecipe }) => {
+  saveToLibrary: (recipe: Recipe) => void;
+}> = ({ recipe, copyRecipe, downloadRecipe, saveToLibrary }) => {
   return (
     <div className="bg-gradient-to-br from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-2xl p-5 shadow-lg">
       <h3 className="font-poppins font-bold text-xl text-orange-900 mb-2">
@@ -907,28 +909,41 @@ const RecipeCard: React.FC<{
         </ol>
       </div>
 
-      <div className="flex gap-2 mt-4">
+      <div className="flex flex-col gap-2 mt-4">
         <button
-          onClick={() => copyRecipe(recipe)}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg font-poppins font-medium text-sm hover:from-orange-600 hover:to-yellow-600 transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+          onClick={() => saveToLibrary(recipe)}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-poppins font-bold text-sm hover:from-green-600 hover:to-emerald-600 transition-all transform hover:scale-105 active:scale-95 shadow-lg"
         >
-          <Copy className="w-4 h-4" />
-          Copy Recipe
+          <BookmarkPlus className="w-5 h-5" />
+          Save to Recipe Library
         </button>
-        <button
-          onClick={() => downloadRecipe(recipe)}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg font-poppins font-medium text-sm hover:from-red-600 hover:to-orange-600 transition-all transform hover:scale-105 active:scale-95 shadow-lg"
-        >
-          <Download className="w-4 h-4" />
-          Download
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => copyRecipe(recipe)}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg font-poppins font-medium text-sm hover:from-orange-600 hover:to-yellow-600 transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+          >
+            <Copy className="w-4 h-4" />
+            Copy
+          </button>
+          <button
+            onClick={() => downloadRecipe(recipe)}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg font-poppins font-medium text-sm hover:from-red-600 hover:to-orange-600 transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+          >
+            <Download className="w-4 h-4" />
+            Download
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
 // ---------- Main component ----------
-const FridgeApp: React.FC = () => {
+interface FridgeAppProps {
+  onNavigateToLibrary?: () => void;
+}
+
+const FridgeApp: React.FC<FridgeAppProps> = ({ onNavigateToLibrary }) => {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [newIngredient, setNewIngredient] = useState("");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -1034,6 +1049,38 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const saveToLibrary = (recipe: Recipe) => {
+    try {
+      // Convert the Recipe from FridgeApp to SavedRecipe format
+      addRecipe({
+        title: recipe.title,
+        description: recipe.description,
+        cookTime: recipe.cookTime,
+        servings: recipe.servings,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+        source: 'generated',
+        collections: [],
+        tags: ['generated', 'from-scanner'],
+        isFavorite: false,
+      });
+
+      // Show success message
+      alert('✨ Recipe saved to your library!\n\nYou can view it in the Recipe Library section.');
+
+      // Optionally navigate to library if the callback is provided
+      if (onNavigateToLibrary) {
+        const shouldNavigate = confirm('Would you like to view your Recipe Library now?');
+        if (shouldNavigate) {
+          onNavigateToLibrary();
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save recipe:', error);
+      alert('❌ Failed to save recipe. Please try again.');
+    }
   };
 
   const handleInputChange = (value: string) => {
@@ -1417,6 +1464,7 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
                           recipe={recipe}
                           copyRecipe={copyRecipe}
                           downloadRecipe={downloadRecipe}
+                          saveToLibrary={saveToLibrary}
                         />
                       ))}
                     </div>
@@ -1435,6 +1483,7 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
                           recipe={recipe}
                           copyRecipe={copyRecipe}
                           downloadRecipe={downloadRecipe}
+                          saveToLibrary={saveToLibrary}
                         />
                       ))}
                     </div>
