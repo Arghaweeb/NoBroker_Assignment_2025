@@ -479,10 +479,10 @@ function RecipeCard({
   isSelected = false,
   onToggleSelection,
 }: RecipeCardProps) {
-  const handleCardClick = () => {
+  const handleCardClick = (e: React.MouseEvent) => {
     if (selectionMode && onToggleSelection) {
       // In selection mode, clicking anywhere toggles selection
-      onToggleSelection(recipe.id, {} as React.MouseEvent);
+      onToggleSelection(recipe.id, e);
     } else {
       onClick();
     }
