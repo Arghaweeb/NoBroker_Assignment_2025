@@ -23,7 +23,7 @@ export default function Loader({ message = 'Loading...', size = 'medium' }: Load
       {/* Refrigerator Animation */}
       <div className={`${sizeClasses[size]} relative animate-bounce`}>
         <img
-          src="/fridge-loader.gif"
+          src="/fridge_loader.gif"
           alt="Loading"
           className="w-full h-full object-contain"
         />

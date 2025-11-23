@@ -1390,7 +1390,7 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
               )}
             </div>
 
-            <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 max-w-lg md:max-w-2xl mx-auto">
+            {/* <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 max-w-lg md:max-w-2xl mx-auto">
               {INGREDIENT_DATA.map((item, index) => (
                 <button
                   key={index}
@@ -1411,7 +1411,7 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
                   </div>
                 </button>
               ))}
-            </div>
+            </div> */}
 
             {ingredients.length > 0 && (
               <div className="space-y-4">
