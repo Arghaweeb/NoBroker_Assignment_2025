@@ -409,26 +409,46 @@ const IngredientIllustration = ({
     ),
     chicken: (
       <div className={`${baseSize} relative mx-auto`}>
+        {/* Body */}
         <div
           className={`${
             size === "large"
-              ? "w-7 h-10 md:w-12 md:h-16"
-              : "w-3 h-5 md:w-6 md:h-8"
-          } bg-gradient-to-b from-amber-200 to-amber-400 rounded-lg border-4 border-amber-200 shadow-lg relative transform rotate-12`}
+              ? "w-8 h-10 md:w-12 md:h-16"
+              : "w-4 h-5 md:w-6 md:h-8"
+          } bg-gradient-to-b from-amber-100 to-amber-300 rounded-full border-4 border-amber-100 shadow-lg relative`}
         >
+          {/* Head */}
           <div
             className={`absolute ${
               size === "large"
-                ? "bottom-0 left-1/2 transform -translate-x-1/2 w-5 h-3 md:w-8 md:h-6"
-                : "bottom-0 left-1/2 transform -translate-x-1/2 w-2 h-1 md:w-4 md:h-3"
-            } bg-amber-300 rounded-full`}
-          ></div>
+                ? "-top-3 md:-top-5 left-1/2 transform -translate-x-1/2 w-5 h-5 md:w-8 md:h-8"
+                : "-top-2 md:-top-3 left-1/2 transform -translate-x-1/2 w-3 h-3 md:w-4 md:h-4"
+            } bg-gradient-to-b from-amber-200 to-amber-300 rounded-full border-2 border-amber-100`}
+          >
+            {/* Red comb on top */}
+            <div
+              className={`absolute ${
+                size === "large"
+                  ? "-top-1 md:-top-2 left-1/2 transform -translate-x-1/2 w-2 h-2 md:w-3 md:h-3"
+                  : "-top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 md:w-2 md:h-2"
+              } bg-red-500 rounded-t-full`}
+            ></div>
+            {/* Orange beak */}
+            <div
+              className={`absolute ${
+                size === "large"
+                  ? "top-1/2 -right-1 md:-right-2 w-1.5 h-1.5 md:w-2 md:h-2"
+                  : "top-1/2 -right-0.5 md:-right-1 w-1 h-1 md:w-1.5 md:h-1.5"
+              } bg-orange-500 transform -translate-y-1/2 rotate-45`}
+            ></div>
+          </div>
+          {/* Wing */}
           <div
             className={`absolute ${
               size === "large"
-                ? "top-1 md:top-2 right-0 md:right-1 w-1 h-2 md:w-3 md:h-4"
-                : "top-1 right-0 w-1 h-2"
-            } bg-amber-500 rounded-lg transform rotate-45`}
+                ? "top-2 md:top-4 -right-1 md:-right-2 w-3 h-4 md:w-5 md:h-6"
+                : "top-1 md:top-2 -right-0.5 md:-right-1 w-2 h-3 md:w-3 md:h-4"
+            } bg-amber-400 rounded-full opacity-80`}
           ></div>
         </div>
       </div>
