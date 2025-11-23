@@ -1410,29 +1410,6 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
               )}
             </div>
 
-            <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 max-w-lg md:max-w-2xl mx-auto">
-              {INGREDIENT_DATA.map((item, index) => (
-                <button
-                  key={index}
-                  onClick={() => addIngredient(item.name)}
-                  className={`bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl md:rounded-3xl p-2 md:p-6 text-center shadow-xl hover:bg-opacity-100 transition-all transform hover:scale-105 active:scale-95 border-2 border-white border-opacity-50 aspect-square flex flex-col items-center justify-center space-y-1 md:space-y-3 ${
-                    index === 6
-                      ? "md:col-auto col-start-2 col-end-3"
-                      : index === 7
-                      ? "md:col-auto col-start-3 col-end-4"
-                      : ""
-                  }`}
-                >
-                  <div className="flex-1 flex items-center justify-center">
-                    <IngredientIllustration type={item.name} />
-                  </div>
-                  <div className="font-poppins font-semibold text-xs md:text-base text-orange-900 capitalize">
-                    {item.name}
-                  </div>
-                </button>
-              ))}
-            </div>
-
             {ingredients.length > 0 && (
               <div className="space-y-4">
                 <h3 className="font-poppins font-semibold text-xl text-orange-900 text-center">
