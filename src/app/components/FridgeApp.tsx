@@ -780,25 +780,25 @@ const ScanModal: React.FC<{
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-40 px-4">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-5 border-2 border-orange-200 relative">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full max-h-[85vh] overflow-y-auto p-4 border-2 border-orange-200 relative">
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 p-1 rounded-full bg-orange-50 hover:bg-orange-100 border border-orange-200"
+          className="absolute top-2 right-2 p-1 rounded-full bg-orange-50 hover:bg-orange-100 border border-orange-200 z-10"
         >
           <X className="w-4 h-4 text-orange-700" />
         </button>
 
-        <h3 className="font-poppins font-bold text-lg text-orange-900 mb-2">
+        <h3 className="font-poppins font-bold text-base text-orange-900 mb-1 pr-8">
           Smart Scan
         </h3>
-        <p className="font-poppins text-xs text-orange-700 mb-4">
+        <p className="font-poppins text-xs text-orange-700 mb-3">
           Upload a photo of your fridge or groceries, or use a quick preset.
         </p>
 
         {/* Image upload */}
-        <div className="mb-4 p-3 border border-dashed border-orange-300 rounded-2xl bg-orange-50">
-          <label className="flex flex-col items-center gap-2 cursor-pointer">
-            <span className="text-2xl">📷</span>
+        <div className="mb-3 p-2.5 border border-dashed border-orange-300 rounded-2xl bg-orange-50">
+          <label className="flex flex-col items-center gap-1.5 cursor-pointer">
+            <span className="text-xl">📷</span>
             <span className="font-poppins text-xs text-orange-800 text-center">
               {scanLoading
                 ? "Scanning items in your image..."
@@ -819,20 +819,20 @@ const ScanModal: React.FC<{
           )}
         </div>
 
-        <p className="font-poppins text-xs text-orange-700 mb-2">
+        <p className="font-poppins text-xs text-orange-700 mb-2 font-semibold">
           Or try a preset fridge:
         </p>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {SCAN_PRESETS.map((preset) => (
             <button
               key={preset.id}
               onClick={() => onApplyPreset(preset.ingredients)}
-              className="w-full flex items-start gap-3 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-2xl px-3 py-2 text-left transition"
+              className="w-full flex items-start gap-2.5 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl px-2.5 py-2 text-left transition"
             >
-              <div className="text-2xl mt-1">{preset.emoji}</div>
+              <div className="text-xl mt-0.5">{preset.emoji}</div>
               <div>
-                <div className="font-poppins font-semibold text-orange-900 text-sm">
+                <div className="font-poppins font-semibold text-orange-900 text-xs">
                   {preset.label}
                 </div>
                 <div className="font-poppins text-xs text-orange-700">
