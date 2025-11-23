@@ -151,6 +151,27 @@ const SCAN_PRESETS: {
     description: "Pasta, tomato, cheese, garlic, onion",
     ingredients: ["pasta", "tomato", "cheese", "garlic", "onion"],
   },
+  {
+    id: "mediterranean-kitchen",
+    label: "Mediterranean Kitchen",
+    emoji: "🫒",
+    description: "Olive oil, feta, cucumber, tomato, lemon",
+    ingredients: ["tomato", "cucumber", "lemon", "garlic", "onion", "oil"],
+  },
+  {
+    id: "asian-fusion",
+    label: "Asian Fusion",
+    emoji: "🍜",
+    description: "Rice, chicken, ginger, vegetables, soy sauce",
+    ingredients: ["rice", "chicken", "onion", "garlic", "carrot", "egg"],
+  },
+  {
+    id: "healthy-veggie",
+    label: "Healthy Vegetarian",
+    emoji: "🥗",
+    description: "Mixed vegetables, beans, spinach, avocado",
+    ingredients: ["spinach", "tomato", "avocado", "onion", "mushroom", "pepper"],
+  },
 ];
 
 // ---------- LocalStorage helpers ----------
