@@ -20,6 +20,7 @@ import {
   addIngredientToShoppingList,
   updateShoppingListItem,
   exportShoppingListAsText,
+  getRecipe,
 } from '../utils/recipe-library-storage';
 import { ShoppingListItem } from '../types/recipe-library';
 
@@ -299,10 +300,22 @@ export default function ShoppingList() {
                                     </p>
                                   )}
                                   {item.recipeIds.length > 0 && (
-                                    <p className="text-xs text-orange-600 mt-1">
-                                      For {item.recipeIds.length} recipe
-                                      {item.recipeIds.length > 1 ? 's' : ''}
-                                    </p>
+                                    <div className="text-xs text-orange-600 mt-1">
+                                      <p className="font-semibold">
+                                        For {item.recipeIds.length} recipe
+                                        {item.recipeIds.length > 1 ? 's' : ''}:
+                                      </p>
+                                      <ul className="list-disc list-inside ml-1 mt-0.5">
+                                        {item.recipeIds.map((recipeId) => {
+                                          const recipe = getRecipe(recipeId);
+                                          return (
+                                            <li key={recipeId} className="truncate">
+                                              {recipe ? recipe.title : 'Unknown Recipe'}
+                                            </li>
+                                          );
+                                        })}
+                                      </ul>
+                                    </div>
                                   )}
                                 </div>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

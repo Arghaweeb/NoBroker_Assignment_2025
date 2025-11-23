@@ -18,6 +18,8 @@ import {
   TrashIcon,
   ShareIcon,
   DocumentDuplicateIcon,
+  ShoppingCartIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import {
   HeartIcon as HeartSolidIcon,
@@ -37,6 +39,7 @@ import {
   markAsCooked,
   addCollection,
   deleteCollection,
+  addRecipeToShoppingList,
 } from '../utils/recipe-library-storage';
 import RecipeDetailView from './RecipeDetailView';
 import RecipeImportModal from './RecipeImportModal';
@@ -62,6 +65,10 @@ export default function RecipeLibrary() {
   const [collectionSelectorRecipeId, setCollectionSelectorRecipeId] = useState<
     string | null
   >(null);
+  const [selectedRecipeIds, setSelectedRecipeIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [selectionMode, setSelectionMode] = useState(false);
 
   // Load library on mount
   useEffect(() => {
@@ -137,6 +144,49 @@ export default function RecipeLibrary() {
     loadLibrary(); // Reload in case recipe was modified
   };
 
+  const handleToggleSelection = (recipeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedRecipeIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(recipeId)) {
+        newSet.delete(recipeId);
+      } else {
+        newSet.add(recipeId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedRecipeIds.size === filteredRecipes.length) {
+      setSelectedRecipeIds(new Set());
+    } else {
+      setSelectedRecipeIds(new Set(filteredRecipes.map((r) => r.id)));
+    }
+  };
+
+  const handleGenerateShoppingList = () => {
+    let successCount = 0;
+    selectedRecipeIds.forEach((recipeId) => {
+      if (addRecipeToShoppingList(recipeId)) {
+        successCount++;
+      }
+    });
+
+    if (successCount > 0) {
+      alert(
+        `Added ${successCount} recipe${successCount > 1 ? 's' : ''} to shopping list!`
+      );
+      setSelectedRecipeIds(new Set());
+      setSelectionMode(false);
+    }
+  };
+
+  const handleCancelSelection = () => {
+    setSelectedRecipeIds(new Set());
+    setSelectionMode(false);
+  };
+
   if (selectedRecipe) {
     return (
       <RecipeDetailView
@@ -163,22 +213,58 @@ export default function RecipeLibrary() {
               </p>
             </div>
             <div className="flex gap-3">
-              <button
-                onClick={() => setShowCollectionManager(true)}
-                className="bg-white border-2 border-amber-300 text-amber-700 px-6 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl hover:bg-amber-50 hover:border-amber-400 transition-all flex items-center gap-2"
-              >
-                <FolderIcon className="w-5 h-5" />
-                <span className="hidden sm:inline">Manage Collections</span>
-                <span className="sm:hidden">Collections</span>
-              </button>
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl hover:from-amber-600 hover:to-orange-600 transition-all flex items-center gap-2"
-              >
-                <PlusIcon className="w-5 h-5" />
-                <span className="hidden sm:inline">Add Recipe</span>
-                <span className="sm:hidden">Add</span>
-              </button>
+              {!selectionMode ? (
+                <>
+                  <button
+                    onClick={() => setShowCollectionManager(true)}
+                    className="bg-white border-2 border-amber-300 text-amber-700 px-6 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl hover:bg-amber-50 hover:border-amber-400 transition-all flex items-center gap-2"
+                  >
+                    <FolderIcon className="w-5 h-5" />
+                    <span className="hidden sm:inline">Manage Collections</span>
+                    <span className="sm:hidden">Collections</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectionMode(true)}
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 transition-all flex items-center gap-2"
+                    disabled={filteredRecipes.length === 0}
+                  >
+                    <ShoppingCartIcon className="w-5 h-5" />
+                    <span className="hidden sm:inline">Select for Shopping</span>
+                    <span className="sm:hidden">Select</span>
+                  </button>
+                  <button
+                    onClick={() => setShowImportModal(true)}
+                    className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl hover:from-amber-600 hover:to-orange-600 transition-all flex items-center gap-2"
+                  >
+                    <PlusIcon className="w-5 h-5" />
+                    <span className="hidden sm:inline">Add Recipe</span>
+                    <span className="sm:hidden">Add</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={handleCancelSelection}
+                    className="bg-white border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center gap-2"
+                  >
+                    <XMarkIcon className="w-5 h-5" />
+                    <span className="hidden sm:inline">Cancel</span>
+                  </button>
+                  <button
+                    onClick={handleGenerateShoppingList}
+                    disabled={selectedRecipeIds.size === 0}
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ShoppingCartIcon className="w-5 h-5" />
+                    <span className="hidden sm:inline">
+                      Generate Shopping List ({selectedRecipeIds.size})
+                    </span>
+                    <span className="sm:hidden">
+                      Generate ({selectedRecipeIds.size})
+                    </span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -228,38 +314,66 @@ export default function RecipeLibrary() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => setFavoriteFilter(!favoriteFilter)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                  favoriteFilter
-                    ? 'bg-red-100 text-red-700 border-2 border-red-300'
-                    : 'bg-gray-100 text-gray-600 border-2 border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                {favoriteFilter ? (
-                  <HeartSolidIcon className="w-4 h-4" />
-                ) : (
-                  <HeartIcon className="w-4 h-4" />
-                )}
-                Favorites
-              </button>
+              {selectionMode ? (
+                <button
+                  onClick={handleSelectAll}
+                  className="flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all bg-blue-100 text-blue-700 border-2 border-blue-300 hover:bg-blue-200"
+                >
+                  <input
+                    type="checkbox"
+                    checked={
+                      filteredRecipes.length > 0 &&
+                      selectedRecipeIds.size === filteredRecipes.length
+                    }
+                    onChange={() => {}}
+                    className="w-4 h-4 rounded border-2 border-blue-500"
+                  />
+                  Select All
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setFavoriteFilter(!favoriteFilter)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                      favoriteFilter
+                        ? 'bg-red-100 text-red-700 border-2 border-red-300'
+                        : 'bg-gray-100 text-gray-600 border-2 border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    {favoriteFilter ? (
+                      <HeartSolidIcon className="w-4 h-4" />
+                    ) : (
+                      <HeartIcon className="w-4 h-4" />
+                    )}
+                    Favorites
+                  </button>
 
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as RecipeSortOption)}
-                className="px-3 py-1.5 rounded-full text-sm border-2 border-amber-200 bg-white text-amber-800 font-medium focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none"
-              >
-                <option value="recent">Recently Added</option>
-                <option value="alphabetical">A to Z</option>
-                <option value="mostCooked">Most Cooked</option>
-                <option value="rating">Highest Rated</option>
-                <option value="cookTime">Cook Time</option>
-              </select>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as RecipeSortOption)}
+                    className="px-3 py-1.5 rounded-full text-sm border-2 border-amber-200 bg-white text-amber-800 font-medium focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none"
+                  >
+                    <option value="recent">Recently Added</option>
+                    <option value="alphabetical">A to Z</option>
+                    <option value="mostCooked">Most Cooked</option>
+                    <option value="rating">Highest Rated</option>
+                    <option value="cookTime">Cook Time</option>
+                  </select>
+                </>
+              )}
             </div>
 
             <div className="text-sm text-amber-700 font-medium">
-              {filteredRecipes.length}{' '}
-              {filteredRecipes.length === 1 ? 'recipe' : 'recipes'}
+              {selectionMode && selectedRecipeIds.size > 0 ? (
+                <span className="text-blue-700">
+                  {selectedRecipeIds.size} of {filteredRecipes.length} selected
+                </span>
+              ) : (
+                <>
+                  {filteredRecipes.length}{' '}
+                  {filteredRecipes.length === 1 ? 'recipe' : 'recipes'}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -295,12 +409,15 @@ export default function RecipeLibrary() {
               <RecipeCard
                 key={recipe.id}
                 recipe={recipe}
-                onClick={() => handleRecipeClick(recipe)}
+                onClick={() => !selectionMode && handleRecipeClick(recipe)}
                 onToggleFavorite={handleToggleFavorite}
                 onOpenCollectionSelector={(id, e) => {
                   e.stopPropagation();
                   setCollectionSelectorRecipeId(id);
                 }}
+                selectionMode={selectionMode}
+                isSelected={selectedRecipeIds.has(recipe.id)}
+                onToggleSelection={handleToggleSelection}
               />
             ))}
           </div>
@@ -348,6 +465,9 @@ interface RecipeCardProps {
   onClick: () => void;
   onToggleFavorite: (id: string, e: React.MouseEvent) => void;
   onOpenCollectionSelector: (id: string, e: React.MouseEvent) => void;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelection?: (id: string, e: React.MouseEvent) => void;
 }
 
 function RecipeCard({
@@ -355,11 +475,27 @@ function RecipeCard({
   onClick,
   onToggleFavorite,
   onOpenCollectionSelector,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelection,
 }: RecipeCardProps) {
+  const handleCardClick = () => {
+    if (selectionMode && onToggleSelection) {
+      // In selection mode, clicking anywhere toggles selection
+      onToggleSelection(recipe.id, {} as React.MouseEvent);
+    } else {
+      onClick();
+    }
+  };
+
   return (
     <div
-      onClick={onClick}
-      className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden border-4 border-amber-100 hover:border-amber-300 group"
+      onClick={handleCardClick}
+      className={`bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden border-4 group ${
+        selectionMode && isSelected
+          ? 'border-blue-500 bg-blue-50'
+          : 'border-amber-100 hover:border-amber-300'
+      }`}
     >
       {/* Recipe Image or Placeholder */}
       <div className="h-48 bg-gradient-to-br from-amber-100 via-orange-100 to-red-100 relative overflow-hidden">
@@ -375,27 +511,40 @@ function RecipeCard({
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="absolute top-3 right-3 flex gap-2">
-          <button
-            onClick={(e) => onOpenCollectionSelector(recipe.id, e)}
-            className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-            title="Add to collection"
-          >
-            <FolderIcon className="w-6 h-6 text-amber-600" />
-          </button>
-          <button
-            onClick={(e) => onToggleFavorite(recipe.id, e)}
-            className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-            title="Toggle favorite"
-          >
-            {recipe.isFavorite ? (
-              <HeartSolidIcon className="w-6 h-6 text-red-500" />
-            ) : (
-              <HeartIcon className="w-6 h-6 text-gray-400" />
-            )}
-          </button>
-        </div>
+        {/* Selection Checkbox or Action Buttons */}
+        {selectionMode ? (
+          <div className="absolute top-3 left-3">
+            <div className="w-8 h-8 rounded-lg bg-white/95 backdrop-blur-sm flex items-center justify-center shadow-lg border-2 border-blue-500">
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => {}}
+                className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="absolute top-3 right-3 flex gap-2">
+            <button
+              onClick={(e) => onOpenCollectionSelector(recipe.id, e)}
+              className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+              title="Add to collection"
+            >
+              <FolderIcon className="w-6 h-6 text-amber-600" />
+            </button>
+            <button
+              onClick={(e) => onToggleFavorite(recipe.id, e)}
+              className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+              title="Toggle favorite"
+            >
+              {recipe.isFavorite ? (
+                <HeartSolidIcon className="w-6 h-6 text-red-500" />
+              ) : (
+                <HeartIcon className="w-6 h-6 text-gray-400" />
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Times Cooked Badge */}
         {recipe.timesCooked > 0 && (
