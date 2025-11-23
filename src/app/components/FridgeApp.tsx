@@ -779,7 +779,7 @@ const ScanModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-40 px-4">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-orange bg-opacity-40 px-4">
       <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full max-h-[85vh] overflow-y-auto p-4 border-2 border-orange-200 relative">
         <button
           onClick={onClose}
