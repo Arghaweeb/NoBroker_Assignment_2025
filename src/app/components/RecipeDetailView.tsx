@@ -25,11 +25,11 @@ import { SavedRecipe, RecipeCollection } from '../types/recipe-library';
 import {
   updateRecipe,
   toggleFavorite,
-  markAsCooked,
   getLibrary,
   addRecipeToShoppingList,
 } from '../utils/recipe-library-storage';
 import { CookingMode } from './CookingMode';
+import CollectionSelector from './CollectionSelector';
 
 interface RecipeDetailViewProps {
   recipe: SavedRecipe;
@@ -56,6 +56,7 @@ export default function RecipeDetailView({
   const [showCopied, setShowCopied] = useState(false);
   const [showAddedToList, setShowAddedToList] = useState(false);
   const [showCookingMode, setShowCookingMode] = useState(false);
+  const [showCollectionSelector, setShowCollectionSelector] = useState(false);
 
   React.useEffect(() => {
     const library = getLibrary();
@@ -64,11 +65,6 @@ export default function RecipeDetailView({
 
   const handleToggleFavorite = () => {
     toggleFavorite(recipe.id);
-    onUpdate();
-  };
-
-  const handleMarkAsCooked = () => {
-    markAsCooked(recipe.id);
     onUpdate();
   };
 
@@ -354,14 +350,52 @@ ${recipe.personalNotes ? `\nPERSONAL NOTES:\n${recipe.personalNotes}` : ''}
               </div>
             )}
 
-            {/* Mark as Cooked Button */}
-            <button
-              onClick={handleMarkAsCooked}
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl hover:from-green-600 hover:to-emerald-600 transition-all flex items-center justify-center gap-2"
-            >
-              <CheckIcon className="w-6 h-6" />
-              I Made This Recipe!
-            </button>
+            {/* Collections */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-amber-900 flex items-center gap-2">
+                  <FolderIcon className="w-5 h-5" />
+                  Collections
+                </h3>
+                <button
+                  onClick={() => setShowCollectionSelector(true)}
+                  className="text-amber-600 hover:text-amber-800 font-medium flex items-center gap-1 text-sm"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                  Manage
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {recipe.collections.length === 0 ? (
+                  <p className="text-amber-500 italic text-sm">
+                    Not in any collection yet
+                  </p>
+                ) : (
+                  recipe.collections.map((collectionId) => {
+                    const collection = collections.find(
+                      (c) => c.id === collectionId
+                    );
+                    if (!collection) return null;
+
+                    return (
+                      <div
+                        key={collection.id}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-full font-semibold text-sm border-2"
+                        style={{
+                          backgroundColor: collection.color + '20',
+                          color: collection.color,
+                          borderColor: collection.color,
+                        }}
+                      >
+                        <span className="text-base">{collection.emoji}</span>
+                        <span>{collection.name}</span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -505,6 +539,19 @@ ${recipe.personalNotes ? `\nPERSONAL NOTES:\n${recipe.personalNotes}` : ''}
           onClose={() => {
             setShowCookingMode(false);
             onUpdate(); // Refresh recipe data in case of updates
+          }}
+        />
+      )}
+
+      {/* Collection Selector Modal */}
+      {showCollectionSelector && (
+        <CollectionSelector
+          recipeId={recipe.id}
+          onClose={() => setShowCollectionSelector(false)}
+          onUpdate={() => {
+            const library = getLibrary();
+            setCollections(library.collections);
+            onUpdate();
           }}
         />
       )}
