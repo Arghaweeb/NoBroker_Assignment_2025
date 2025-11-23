@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Plus, X, Clock, Users, Copy, Download, BookmarkPlus } from "lucide-react";
+import { Plus, X, Clock, Users, Copy, Download, BookmarkPlus, BookmarkCheck } from "lucide-react";
 import * as emoji from "node-emoji";
 import { addRecipe } from '../utils/recipe-library-storage';
+import Loader from './Loader';
 
 // ---------- Types ----------
 interface Ingredient {
@@ -21,6 +22,7 @@ interface Recipe {
   instructions: string[];
   matchPercentage: number;
   missingIngredients?: string[];
+  countryOfOrigin?: string;
 
   // Smart suggestions / learning
   personalScore?: number;
@@ -34,6 +36,7 @@ interface ApiRecipe {
   instructions: string[];
   cookingTime: string;
   servings: number;
+  countryOfOrigin?: string;
 }
 
 interface ApiResponse {
@@ -147,6 +150,27 @@ const SCAN_PRESETS: {
     emoji: "🍝",
     description: "Pasta, tomato, cheese, garlic, onion",
     ingredients: ["pasta", "tomato", "cheese", "garlic", "onion"],
+  },
+  {
+    id: "mediterranean-kitchen",
+    label: "Mediterranean Kitchen",
+    emoji: "🫒",
+    description: "Olive oil, feta, cucumber, tomato, lemon",
+    ingredients: ["tomato", "cucumber", "lemon", "garlic", "onion", "oil"],
+  },
+  {
+    id: "asian-fusion",
+    label: "Asian Fusion",
+    emoji: "🍜",
+    description: "Rice, chicken, ginger, vegetables, soy sauce",
+    ingredients: ["rice", "chicken", "onion", "garlic", "carrot", "egg"],
+  },
+  {
+    id: "healthy-veggie",
+    label: "Healthy Vegetarian",
+    emoji: "🥗",
+    description: "Mixed vegetables, beans, spinach, avocado",
+    ingredients: ["spinach", "tomato", "avocado", "onion", "mushroom", "pepper"],
   },
 ];
 
@@ -698,6 +722,7 @@ const generateRecipes = async (
     servings: recipe.servings,
     ingredients: recipe.ingredients,
     instructions: recipe.instructions,
+    countryOfOrigin: recipe.countryOfOrigin,
     matchPercentage: 0,
     missingIngredients: [],
   }));
@@ -754,26 +779,26 @@ const ScanModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-orange-50 bg-opacity-40 px-4">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-5 border-2 border-orange-200 relative">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-orange bg-opacity-40 px-4">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full max-h-[85vh] overflow-y-auto p-4 border-2 border-orange-200 relative">
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 p-1 rounded-full bg-orange-50 hover:bg-orange-100 border border-orange-200"
+          className="absolute top-2 right-2 p-1 rounded-full bg-orange-50 hover:bg-orange-100 border border-orange-200 z-10"
         >
           <X className="w-4 h-4 text-orange-700" />
         </button>
 
-        <h3 className="font-poppins font-bold text-lg text-orange-900 mb-2">
+        <h3 className="font-poppins font-bold text-base text-orange-900 mb-1 pr-8">
           Smart Scan
         </h3>
-        <p className="font-poppins text-xs text-orange-700 mb-4">
+        <p className="font-poppins text-xs text-orange-700 mb-3">
           Upload a photo of your fridge or groceries, or use a quick preset.
         </p>
 
         {/* Image upload */}
-        <div className="mb-4 p-3 border border-dashed border-orange-300 rounded-2xl bg-orange-50">
-          <label className="flex flex-col items-center gap-2 cursor-pointer">
-            <span className="text-2xl">📷</span>
+        <div className="mb-3 p-2.5 border border-dashed border-orange-300 rounded-2xl bg-orange-50">
+          <label className="flex flex-col items-center gap-1.5 cursor-pointer">
+            <span className="text-xl">📷</span>
             <span className="font-poppins text-xs text-orange-800 text-center">
               {scanLoading
                 ? "Scanning items in your image..."
@@ -794,20 +819,20 @@ const ScanModal: React.FC<{
           )}
         </div>
 
-        <p className="font-poppins text-xs text-orange-700 mb-2">
+        <p className="font-poppins text-xs text-orange-700 mb-2 font-semibold">
           Or try a preset fridge:
         </p>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {SCAN_PRESETS.map((preset) => (
             <button
               key={preset.id}
               onClick={() => onApplyPreset(preset.ingredients)}
-              className="w-full flex items-start gap-3 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-2xl px-3 py-2 text-left transition"
+              className="w-full flex items-start gap-2.5 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl px-2.5 py-2 text-left transition"
             >
-              <div className="text-2xl mt-1">{preset.emoji}</div>
+              <div className="text-xl mt-0.5">{preset.emoji}</div>
               <div>
-                <div className="font-poppins font-semibold text-orange-900 text-sm">
+                <div className="font-poppins font-semibold text-orange-900 text-xs">
                   {preset.label}
                 </div>
                 <div className="font-poppins text-xs text-orange-700">
@@ -828,7 +853,8 @@ const RecipeCard: React.FC<{
   copyRecipe: (recipe: Recipe) => void;
   downloadRecipe: (recipe: Recipe) => void;
   saveToLibrary: (recipe: Recipe) => void;
-}> = ({ recipe, copyRecipe, downloadRecipe, saveToLibrary }) => {
+  savedRecipeIds: Set<string>;
+}> = ({ recipe, copyRecipe, downloadRecipe, saveToLibrary, savedRecipeIds }) => {
   return (
     <div className="bg-gradient-to-br from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-2xl p-5 shadow-lg">
       <h3 className="font-poppins font-bold text-xl text-orange-900 mb-2">
@@ -851,6 +877,14 @@ const RecipeCard: React.FC<{
             {recipe.servings} servings
           </span>
         </div>
+        {recipe.countryOfOrigin && (
+          <div className="flex items-center gap-1 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-full px-3 py-1 shadow-sm">
+            <span className="text-base">🌍</span>
+            <span className="font-poppins font-semibold text-blue-800">
+              {recipe.countryOfOrigin}
+            </span>
+          </div>
+        )}
         <div
           className={`flex items-center gap-1 bg-white rounded-full px-3 py-1 shadow-sm ${
             recipe.matchPercentage >= 80
@@ -912,10 +946,24 @@ const RecipeCard: React.FC<{
       <div className="flex flex-col gap-2 mt-4">
         <button
           onClick={() => saveToLibrary(recipe)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-poppins font-bold text-sm hover:from-green-600 hover:to-emerald-600 transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+          disabled={savedRecipeIds.has(recipe.id)}
+          className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-poppins font-bold text-sm transition-all shadow-lg ${
+            savedRecipeIds.has(recipe.id)
+              ? 'bg-gray-400 cursor-not-allowed opacity-60'
+              : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transform hover:scale-105 active:scale-95'
+          }`}
         >
-          <BookmarkPlus className="w-5 h-5" />
-          Save to Recipe Library
+          {savedRecipeIds.has(recipe.id) ? (
+            <>
+              <BookmarkCheck className="w-5 h-5" />
+              Saved to Library
+            </>
+          ) : (
+            <>
+              <BookmarkPlus className="w-5 h-5" />
+              Save to Recipe Library
+            </>
+          )}
         </button>
         <div className="flex gap-2">
           <button
@@ -962,6 +1010,7 @@ const FridgeApp: React.FC<FridgeAppProps> = ({ onNavigateToLibrary }) => {
   const [showScanModal, setShowScanModal] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [savedRecipeIds, setSavedRecipeIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const stored = loadTasteProfile();
@@ -1052,6 +1101,12 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
   };
 
   const saveToLibrary = (recipe: Recipe) => {
+    // Check if already saved
+    if (savedRecipeIds.has(recipe.id)) {
+      alert('ℹ️ This recipe is already in your library!');
+      return;
+    }
+
     try {
       // Convert the Recipe from FridgeApp to SavedRecipe format
       addRecipe({
@@ -1061,11 +1116,15 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
         servings: recipe.servings,
         ingredients: recipe.ingredients,
         instructions: recipe.instructions,
+        countryOfOrigin: recipe.countryOfOrigin,
         source: 'generated',
         collections: [],
         tags: ['generated', 'from-scanner'],
         isFavorite: false,
       });
+
+      // Mark this recipe as saved
+      setSavedRecipeIds(prev => new Set(prev).add(recipe.id));
 
       // Show success message
       alert('✨ Recipe saved to your library!\n\nYou can view it in the Recipe Library section.');
@@ -1421,10 +1480,7 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
 
             {loading ? (
               <div className="bg-white bg-opacity-95 backdrop-blur-sm border-2 border-orange-200 rounded-3xl p-8 text-center shadow-2xl">
-                <div className="animate-spin w-12 h-12 border-4 border-orange-300 border-t-orange-600 rounded-full mx-auto mb-3"></div>
-                <p className="font-poppins font-medium text-orange-900">
-                  Finding recipes... ✨
-                </p>
+                <Loader message="Finding recipes... ✨" size="large" />
               </div>
             ) : error ? (
               <div className="bg-white bg-opacity-95 backdrop-blur-sm border-2 border-orange-200 rounded-3xl p-8 text-center shadow-2xl">
@@ -1465,6 +1521,7 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
                           copyRecipe={copyRecipe}
                           downloadRecipe={downloadRecipe}
                           saveToLibrary={saveToLibrary}
+                          savedRecipeIds={savedRecipeIds}
                         />
                       ))}
                     </div>
@@ -1484,6 +1541,7 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
                           copyRecipe={copyRecipe}
                           downloadRecipe={downloadRecipe}
                           saveToLibrary={saveToLibrary}
+                          savedRecipeIds={savedRecipeIds}
                         />
                       ))}
                     </div>

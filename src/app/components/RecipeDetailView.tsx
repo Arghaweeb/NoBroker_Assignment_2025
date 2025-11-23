@@ -88,6 +88,7 @@ ${recipe.description}
 
 ⏱️ Cook Time: ${recipe.cookTime}
 👥 Servings: ${recipe.servings}
+${recipe.countryOfOrigin ? `🌍 Origin: ${recipe.countryOfOrigin}` : ''}
 
 INGREDIENTS:
 ${recipe.ingredients.map((ing, i) => `${i + 1}. ${ing}`).join('\n')}
@@ -111,6 +112,7 @@ ${recipe.description}
 
 Cook Time: ${recipe.cookTime}
 Servings: ${recipe.servings}
+${recipe.countryOfOrigin ? `Origin: ${recipe.countryOfOrigin}` : ''}
 
 INGREDIENTS:
 ${recipe.ingredients.map((ing, i) => `${i + 1}. ${ing}`).join('\n')}
@@ -312,6 +314,18 @@ ${recipe.personalNotes ? `\nPERSONAL NOTES:\n${recipe.personalNotes}` : ''}
                   {recipe.servings}
                 </div>
               </div>
+
+              {recipe.countryOfOrigin && (
+                <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-100">
+                  <div className="flex items-center gap-2 text-blue-600 mb-1">
+                    <span className="text-lg">🌍</span>
+                    <span className="text-sm font-medium">Origin</span>
+                  </div>
+                  <div className="text-xl font-bold text-blue-900">
+                    {recipe.countryOfOrigin}
+                  </div>
+                </div>
+              )}
 
               <div className="bg-red-50 rounded-xl p-4 border-2 border-red-100">
                 <div className="flex items-center gap-2 text-red-600 mb-1">

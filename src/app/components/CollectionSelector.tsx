@@ -125,13 +125,38 @@ export default function CollectionSelector({
   };
 
   const handleToggleCollection = (collectionId: string) => {
-    const newSelected = selectedCollections.includes(collectionId)
+    const isCurrentlySelected = selectedCollections.includes(collectionId);
+    const newSelected = isCurrentlySelected
       ? selectedCollections.filter((id) => id !== collectionId)
       : [...selectedCollections, collectionId];
 
     setSelectedCollections(newSelected);
     updateRecipe(recipeId, { collections: newSelected });
     onUpdate();
+
+    // Show confirmation message when adding to collection
+    if (!isCurrentlySelected) {
+      const collection = collections.find((c) => c.id === collectionId);
+      if (collection) {
+        // Create a temporary toast message
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[60] flex items-center gap-2 animate-slide-in';
+        toast.innerHTML = `
+          <span class="text-xl">${collection.emoji}</span>
+          <span class="font-semibold">Added to "${collection.name}"</span>
+        `;
+        document.body.appendChild(toast);
+
+        // Remove toast after 3 seconds
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transition = 'opacity 0.3s';
+          setTimeout(() => {
+            document.body.removeChild(toast);
+          }, 300);
+        }, 3000);
+      }
+    }
   };
 
   const handleCreateCollection = () => {
@@ -152,6 +177,24 @@ export default function CollectionSelector({
       const updatedCollections = [...selectedCollections, newCollection.id];
       setSelectedCollections(updatedCollections);
       updateRecipe(recipeId, { collections: updatedCollections });
+
+      // Show success message
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[60] flex items-center gap-2 animate-slide-in';
+      toast.innerHTML = `
+        <span class="text-xl">${newCollection.emoji}</span>
+        <span class="font-semibold">Created and added to "${newCollection.name}"</span>
+      `;
+      document.body.appendChild(toast);
+
+      // Remove toast after 3 seconds
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => {
+          document.body.removeChild(toast);
+        }, 300);
+      }, 3000);
 
       // Reset form
       setNewCollectionName('');
