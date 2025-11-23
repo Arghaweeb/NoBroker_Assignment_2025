@@ -41,6 +41,7 @@ import {
 import RecipeDetailView from './RecipeDetailView';
 import RecipeImportModal from './RecipeImportModal';
 import CollectionManager from './CollectionManager';
+import CollectionSelector from './CollectionSelector';
 
 type ViewMode = 'grid' | 'list';
 
@@ -58,6 +59,9 @@ export default function RecipeLibrary() {
   const [showFilters, setShowFilters] = useState(false);
   const [favoriteFilter, setFavoriteFilter] = useState(false);
   const [showCollectionManager, setShowCollectionManager] = useState(false);
+  const [collectionSelectorRecipeId, setCollectionSelectorRecipeId] = useState<
+    string | null
+  >(null);
 
   // Load library on mount
   useEffect(() => {
@@ -293,6 +297,10 @@ export default function RecipeLibrary() {
                 recipe={recipe}
                 onClick={() => handleRecipeClick(recipe)}
                 onToggleFavorite={handleToggleFavorite}
+                onOpenCollectionSelector={(id, e) => {
+                  e.stopPropagation();
+                  setCollectionSelectorRecipeId(id);
+                }}
               />
             ))}
           </div>
@@ -319,6 +327,17 @@ export default function RecipeLibrary() {
           }}
         />
       )}
+
+      {/* Collection Selector Modal */}
+      {collectionSelectorRecipeId && (
+        <CollectionSelector
+          recipeId={collectionSelectorRecipeId}
+          onClose={() => setCollectionSelectorRecipeId(null)}
+          onUpdate={() => {
+            loadLibrary();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -328,9 +347,15 @@ interface RecipeCardProps {
   recipe: SavedRecipe;
   onClick: () => void;
   onToggleFavorite: (id: string, e: React.MouseEvent) => void;
+  onOpenCollectionSelector: (id: string, e: React.MouseEvent) => void;
 }
 
-function RecipeCard({ recipe, onClick, onToggleFavorite }: RecipeCardProps) {
+function RecipeCard({
+  recipe,
+  onClick,
+  onToggleFavorite,
+  onOpenCollectionSelector,
+}: RecipeCardProps) {
   return (
     <div
       onClick={onClick}
@@ -350,17 +375,27 @@ function RecipeCard({ recipe, onClick, onToggleFavorite }: RecipeCardProps) {
           </div>
         )}
 
-        {/* Favorite Button */}
-        <button
-          onClick={(e) => onToggleFavorite(recipe.id, e)}
-          className="absolute top-3 right-3 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-        >
-          {recipe.isFavorite ? (
-            <HeartSolidIcon className="w-6 h-6 text-red-500" />
-          ) : (
-            <HeartIcon className="w-6 h-6 text-gray-400" />
-          )}
-        </button>
+        {/* Action Buttons */}
+        <div className="absolute top-3 right-3 flex gap-2">
+          <button
+            onClick={(e) => onOpenCollectionSelector(recipe.id, e)}
+            className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+            title="Add to collection"
+          >
+            <FolderIcon className="w-6 h-6 text-amber-600" />
+          </button>
+          <button
+            onClick={(e) => onToggleFavorite(recipe.id, e)}
+            className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+            title="Toggle favorite"
+          >
+            {recipe.isFavorite ? (
+              <HeartSolidIcon className="w-6 h-6 text-red-500" />
+            ) : (
+              <HeartIcon className="w-6 h-6 text-gray-400" />
+            )}
+          </button>
+        </div>
 
         {/* Times Cooked Badge */}
         {recipe.timesCooked > 0 && (
