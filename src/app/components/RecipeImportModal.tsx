@@ -212,11 +212,39 @@ export default function RecipeImportModal({
     setLoading(true);
 
     try {
-      // Note: In a real implementation, you would call an API to scrape the URL
-      // For now, we'll show an error message
-      setError(
-        'URL import requires a backend service. Please use text paste or manual entry for now.'
-      );
+      const response = await fetch('/api/scrape-recipe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Failed to import recipe from URL');
+        return;
+      }
+
+      // Import the scraped recipe
+      const { recipe } = data;
+      addRecipe({
+        title: recipe.title,
+        description: recipe.description,
+        cookTime: recipe.cookTime,
+        servings: recipe.servings,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+        source: 'imported',
+        sourceUrl: recipe.sourceUrl,
+        imageUrl: recipe.imageUrl,
+        collections: [],
+        tags: ['imported'],
+        isFavorite: false,
+      });
+
+      onImport();
     } catch (err) {
       setError('Failed to import from URL. Please try text paste or manual entry.');
     } finally {
@@ -502,24 +530,24 @@ Instructions:
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://example.com/recipe"
+                placeholder="https://www.allrecipes.com/recipe/..."
                 className="w-full px-4 py-3 border-2 border-amber-200 rounded-xl focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none"
               />
 
-              <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4">
-                <p className="text-sm text-amber-800">
-                  <strong>Note:</strong> URL import requires a backend service to
-                  scrape recipes. This feature is coming soon! For now, please use
-                  the "Paste Text" or "Manual Entry" options.
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Supported sites:</strong> Works with most recipe websites
+                  that use standard recipe markup (schema.org), including AllRecipes,
+                  BBC Good Food, Food Network, Bon Appétit, and many others.
                 </p>
               </div>
 
               <button
                 onClick={handleUrlImport}
-                disabled={true}
-                className="w-full bg-gray-300 text-gray-500 py-4 rounded-2xl font-bold text-lg cursor-not-allowed"
+                disabled={loading || !url.trim()}
+                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Coming Soon
+                {loading ? 'Importing...' : 'Import Recipe'}
               </button>
             </div>
           )}
