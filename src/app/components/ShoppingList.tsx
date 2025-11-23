@@ -113,6 +113,19 @@ export default function ShoppingList() {
     setShowShareModal(false);
   };
 
+  const handleDownloadAsText = () => {
+    const text = exportShoppingListAsText();
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `shopping-list-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const uncheckedItems = items.filter((item) => !item.checked);
   const checkedItems = items.filter((item) => item.checked);
 
@@ -408,28 +421,39 @@ export default function ShoppingList() {
       {showShareModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-hidden">
-            <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-4">
+            <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-4 flex items-center justify-between">
               <h2 className="text-2xl font-serif font-bold">
                 Share Shopping List
               </h2>
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                title="Close"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
             </div>
             <div className="p-6 overflow-y-auto max-h-96">
               <pre className="bg-gray-50 p-4 rounded-lg text-sm whitespace-pre-wrap font-mono border-2 border-gray-200">
                 {exportShoppingListAsText()}
               </pre>
             </div>
-            <div className="px-6 py-4 bg-gray-50 border-t-2 border-gray-200 flex gap-3">
+            <div className="px-6 py-4 bg-gray-50 border-t-2 border-gray-200 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={handleCopyToClipboard}
-                className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all font-medium"
+                className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all font-medium flex items-center justify-center gap-2"
               >
+                <ShareIcon className="w-5 h-5" />
                 Copy to Clipboard
               </button>
               <button
-                onClick={() => setShowShareModal(false)}
-                className="px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-all"
+                onClick={handleDownloadAsText}
+                className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all font-medium flex items-center justify-center gap-2"
               >
-                Close
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Download as .txt
               </button>
             </div>
           </div>

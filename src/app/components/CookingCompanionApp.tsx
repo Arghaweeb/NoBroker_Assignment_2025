@@ -146,7 +146,7 @@ export default function CookingCompanionApp() {
         {currentScreen === 'scanner' ? (
           <FridgeApp onNavigateToLibrary={() => setCurrentScreen('library')} />
         ) : currentScreen === 'library' ? (
-          <RecipeLibrary />
+          <RecipeLibrary onNavigateToShopping={() => setCurrentScreen('shopping')} />
         ) : (
           <ShoppingList />
         )}

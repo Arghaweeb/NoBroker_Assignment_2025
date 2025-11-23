@@ -48,7 +48,11 @@ import CollectionSelector from './CollectionSelector';
 
 type ViewMode = 'grid' | 'list';
 
-export default function RecipeLibrary() {
+interface RecipeLibraryProps {
+  onNavigateToShopping?: () => void;
+}
+
+export default function RecipeLibrary({ onNavigateToShopping }: RecipeLibraryProps = {}) {
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [collections, setCollections] = useState<RecipeCollection[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -174,11 +178,12 @@ export default function RecipeLibrary() {
     });
 
     if (successCount > 0) {
-      alert(
-        `Added ${successCount} recipe${successCount > 1 ? 's' : ''} to shopping list!`
-      );
       setSelectedRecipeIds(new Set());
       setSelectionMode(false);
+      // Navigate to shopping list
+      if (onNavigateToShopping) {
+        onNavigateToShopping();
+      }
     }
   };
 
