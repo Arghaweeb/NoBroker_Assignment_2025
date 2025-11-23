@@ -25,7 +25,6 @@ import { SavedRecipe, RecipeCollection } from '../types/recipe-library';
 import {
   updateRecipe,
   toggleFavorite,
-  markAsCooked,
   getLibrary,
   addRecipeToShoppingList,
 } from '../utils/recipe-library-storage';
@@ -66,11 +65,6 @@ export default function RecipeDetailView({
 
   const handleToggleFavorite = () => {
     toggleFavorite(recipe.id);
-    onUpdate();
-  };
-
-  const handleMarkAsCooked = () => {
-    markAsCooked(recipe.id);
     onUpdate();
   };
 
@@ -402,15 +396,6 @@ ${recipe.personalNotes ? `\nPERSONAL NOTES:\n${recipe.personalNotes}` : ''}
                 )}
               </div>
             </div>
-
-            {/* Mark as Cooked Button */}
-            <button
-              onClick={handleMarkAsCooked}
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl hover:from-green-600 hover:to-emerald-600 transition-all flex items-center justify-center gap-2"
-            >
-              <CheckIcon className="w-6 h-6" />
-              I Made This Recipe!
-            </button>
           </div>
         </div>
 

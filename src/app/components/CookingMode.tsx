@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { SavedRecipe, RecipeStep } from '../types/recipe-library';
 import { StepTimer } from './StepTimer';
 import { enhanceInstructionsWithTimers } from '../utils/timer-extraction';
+import { markAsCooked } from '../utils/recipe-library-storage';
 
 interface CookingModeProps {
   recipe: SavedRecipe;
@@ -19,6 +20,7 @@ export function CookingMode({ recipe, onClose }: CookingModeProps) {
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [hasMarkedAsCooked, setHasMarkedAsCooked] = useState(false);
 
   const currentStep = steps[currentStepIndex];
   const isFirstStep = currentStepIndex === 0;
@@ -100,6 +102,16 @@ export function CookingMode({ recipe, onClose }: CookingModeProps) {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [currentStepIndex, isLastStep, isFirstStep, completedSteps]);
+
+  /**
+   * Mark recipe as cooked when all steps are completed
+   */
+  useEffect(() => {
+    if (allStepsComplete && !hasMarkedAsCooked) {
+      markAsCooked(recipe.id);
+      setHasMarkedAsCooked(true);
+    }
+  }, [allStepsComplete, hasMarkedAsCooked, recipe.id]);
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 overflow-y-auto z-50">
