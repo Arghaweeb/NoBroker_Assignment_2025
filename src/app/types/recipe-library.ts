@@ -31,6 +31,7 @@ export interface SavedRecipe {
   ingredients: string[];
   instructions: string[]; // Legacy support
   steps?: RecipeStep[]; // Enhanced steps with timer support (preferred over instructions)
+  countryOfOrigin?: string; // Country or cuisine origin
 
   // Library-specific metadata
   savedAt: number; // timestamp

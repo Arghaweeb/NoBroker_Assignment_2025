@@ -22,6 +22,7 @@ interface Recipe {
   instructions: string[];
   matchPercentage: number;
   missingIngredients?: string[];
+  countryOfOrigin?: string;
 
   // Smart suggestions / learning
   personalScore?: number;
@@ -35,6 +36,7 @@ interface ApiRecipe {
   instructions: string[];
   cookingTime: string;
   servings: number;
+  countryOfOrigin?: string;
 }
 
 interface ApiResponse {
@@ -699,6 +701,7 @@ const generateRecipes = async (
     servings: recipe.servings,
     ingredients: recipe.ingredients,
     instructions: recipe.instructions,
+    countryOfOrigin: recipe.countryOfOrigin,
     matchPercentage: 0,
     missingIngredients: [],
   }));
@@ -853,6 +856,14 @@ const RecipeCard: React.FC<{
             {recipe.servings} servings
           </span>
         </div>
+        {recipe.countryOfOrigin && (
+          <div className="flex items-center gap-1 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-full px-3 py-1 shadow-sm">
+            <span className="text-base">🌍</span>
+            <span className="font-poppins font-semibold text-blue-800">
+              {recipe.countryOfOrigin}
+            </span>
+          </div>
+        )}
         <div
           className={`flex items-center gap-1 bg-white rounded-full px-3 py-1 shadow-sm ${
             recipe.matchPercentage >= 80
@@ -1084,6 +1095,7 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
         servings: recipe.servings,
         ingredients: recipe.ingredients,
         instructions: recipe.instructions,
+        countryOfOrigin: recipe.countryOfOrigin,
         source: 'generated',
         collections: [],
         tags: ['generated', 'from-scanner'],
