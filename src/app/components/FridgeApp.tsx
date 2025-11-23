@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Plus, X, Clock, Users, Copy, Download, BookmarkPlus } from "lucide-react";
+import { Plus, X, Clock, Users, Copy, Download, BookmarkPlus, BookmarkCheck } from "lucide-react";
 import * as emoji from "node-emoji";
 import { addRecipe } from '../utils/recipe-library-storage';
+import Loader from './Loader';
 
 // ---------- Types ----------
 interface Ingredient {
@@ -828,7 +829,8 @@ const RecipeCard: React.FC<{
   copyRecipe: (recipe: Recipe) => void;
   downloadRecipe: (recipe: Recipe) => void;
   saveToLibrary: (recipe: Recipe) => void;
-}> = ({ recipe, copyRecipe, downloadRecipe, saveToLibrary }) => {
+  savedRecipeIds: Set<string>;
+}> = ({ recipe, copyRecipe, downloadRecipe, saveToLibrary, savedRecipeIds }) => {
   return (
     <div className="bg-gradient-to-br from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-2xl p-5 shadow-lg">
       <h3 className="font-poppins font-bold text-xl text-orange-900 mb-2">
@@ -912,10 +914,24 @@ const RecipeCard: React.FC<{
       <div className="flex flex-col gap-2 mt-4">
         <button
           onClick={() => saveToLibrary(recipe)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-poppins font-bold text-sm hover:from-green-600 hover:to-emerald-600 transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+          disabled={savedRecipeIds.has(recipe.id)}
+          className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-poppins font-bold text-sm transition-all shadow-lg ${
+            savedRecipeIds.has(recipe.id)
+              ? 'bg-gray-400 cursor-not-allowed opacity-60'
+              : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transform hover:scale-105 active:scale-95'
+          }`}
         >
-          <BookmarkPlus className="w-5 h-5" />
-          Save to Recipe Library
+          {savedRecipeIds.has(recipe.id) ? (
+            <>
+              <BookmarkCheck className="w-5 h-5" />
+              Saved to Library
+            </>
+          ) : (
+            <>
+              <BookmarkPlus className="w-5 h-5" />
+              Save to Recipe Library
+            </>
+          )}
         </button>
         <div className="flex gap-2">
           <button
@@ -962,6 +978,7 @@ const FridgeApp: React.FC<FridgeAppProps> = ({ onNavigateToLibrary }) => {
   const [showScanModal, setShowScanModal] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [savedRecipeIds, setSavedRecipeIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const stored = loadTasteProfile();
@@ -1052,6 +1069,12 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
   };
 
   const saveToLibrary = (recipe: Recipe) => {
+    // Check if already saved
+    if (savedRecipeIds.has(recipe.id)) {
+      alert('ℹ️ This recipe is already in your library!');
+      return;
+    }
+
     try {
       // Convert the Recipe from FridgeApp to SavedRecipe format
       addRecipe({
@@ -1066,6 +1089,9 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
         tags: ['generated', 'from-scanner'],
         isFavorite: false,
       });
+
+      // Mark this recipe as saved
+      setSavedRecipeIds(prev => new Set(prev).add(recipe.id));
 
       // Show success message
       alert('✨ Recipe saved to your library!\n\nYou can view it in the Recipe Library section.');
@@ -1421,10 +1447,7 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
 
             {loading ? (
               <div className="bg-white bg-opacity-95 backdrop-blur-sm border-2 border-orange-200 rounded-3xl p-8 text-center shadow-2xl">
-                <div className="animate-spin w-12 h-12 border-4 border-orange-300 border-t-orange-600 rounded-full mx-auto mb-3"></div>
-                <p className="font-poppins font-medium text-orange-900">
-                  Finding recipes... ✨
-                </p>
+                <Loader message="Finding recipes... ✨" size="large" />
               </div>
             ) : error ? (
               <div className="bg-white bg-opacity-95 backdrop-blur-sm border-2 border-orange-200 rounded-3xl p-8 text-center shadow-2xl">
@@ -1465,6 +1488,7 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
                           copyRecipe={copyRecipe}
                           downloadRecipe={downloadRecipe}
                           saveToLibrary={saveToLibrary}
+                          savedRecipeIds={savedRecipeIds}
                         />
                       ))}
                     </div>
@@ -1484,6 +1508,7 @@ ${recipe.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")}
                           copyRecipe={copyRecipe}
                           downloadRecipe={downloadRecipe}
                           saveToLibrary={saveToLibrary}
+                          savedRecipeIds={savedRecipeIds}
                         />
                       ))}
                     </div>

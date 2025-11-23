@@ -4,10 +4,10 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { SavedRecipe, RecipeStep } from '../types/recipe-library';
+import { SavedRecipe, RecipeStep, CookingFeedback } from '../types/recipe-library';
 import { StepTimer } from './StepTimer';
 import { enhanceInstructionsWithTimers } from '../utils/timer-extraction';
-import { markAsCooked } from '../utils/recipe-library-storage';
+import { markAsCooked, updateRecipe, getRecipe } from '../utils/recipe-library-storage';
 
 interface CookingModeProps {
   recipe: SavedRecipe;
@@ -21,11 +21,14 @@ export function CookingMode({ recipe, onClose }: CookingModeProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [hasMarkedAsCooked, setHasMarkedAsCooked] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   const currentStep = steps[currentStepIndex];
   const isFirstStep = currentStepIndex === 0;
   const isLastStep = currentStepIndex === steps.length - 1;
   const allStepsComplete = completedSteps.size === steps.length;
+  const hasTimers = steps.some(step => step.suggestedTimer);
 
   /**
    * Navigate to next step
@@ -104,14 +107,50 @@ export function CookingMode({ recipe, onClose }: CookingModeProps) {
   }, [currentStepIndex, isLastStep, isFirstStep, completedSteps]);
 
   /**
-   * Mark recipe as cooked when all steps are completed
+   * Mark recipe as cooked and show feedback modal when all steps are completed
    */
   useEffect(() => {
     if (allStepsComplete && !hasMarkedAsCooked) {
       markAsCooked(recipe.id);
       setHasMarkedAsCooked(true);
+      // Show feedback modal after a short delay
+      setTimeout(() => {
+        setShowFeedbackModal(true);
+      }, 2000);
     }
   }, [allStepsComplete, hasMarkedAsCooked, recipe.id]);
+
+  /**
+   * Handle feedback submission
+   */
+  const handleFeedbackSubmit = (easyToFollow: boolean, timersHelpful: boolean | null, wouldCookAgain: boolean) => {
+    const feedback: CookingFeedback = {
+      timestamp: Date.now(),
+      easyToFollow,
+      timersHelpful: hasTimers ? timersHelpful : null,
+      wouldCookAgain,
+    };
+
+    // Get the current recipe data
+    const currentRecipe = getRecipe(recipe.id);
+    if (currentRecipe) {
+      const existingFeedback = currentRecipe.cookingFeedback || [];
+      updateRecipe(recipe.id, {
+        cookingFeedback: [...existingFeedback, feedback],
+      });
+    }
+
+    setFeedbackSubmitted(true);
+    setShowFeedbackModal(false);
+  };
+
+  /**
+   * Skip feedback
+   */
+  const handleSkipFeedback = () => {
+    setShowFeedbackModal(false);
+    setFeedbackSubmitted(true);
+  };
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 overflow-y-auto z-50">
@@ -315,6 +354,172 @@ export function CookingMode({ recipe, onClose }: CookingModeProps) {
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && <FeedbackModal hasTimers={hasTimers} onSubmit={handleFeedbackSubmit} onSkip={handleSkipFeedback} />}
+    </div>
+  );
+}
+
+/**
+ * Feedback Modal Component
+ */
+function FeedbackModal({
+  hasTimers,
+  onSubmit,
+  onSkip
+}: {
+  hasTimers: boolean;
+  onSubmit: (easyToFollow: boolean, timersHelpful: boolean | null, wouldCookAgain: boolean) => void;
+  onSkip: () => void;
+}) {
+  const [easyToFollow, setEasyToFollow] = useState<boolean | null>(null);
+  const [timersHelpful, setTimersHelpful] = useState<boolean | null>(null);
+  const [wouldCookAgain, setWouldCookAgain] = useState<boolean | null>(null);
+
+  const canSubmit = easyToFollow !== null && wouldCookAgain !== null && (!hasTimers || timersHelpful !== null);
+
+  const handleSubmit = () => {
+    if (canSubmit) {
+      onSubmit(easyToFollow!, timersHelpful, wouldCookAgain!);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+      <div className="bg-white rounded-3xl shadow-2xl border-4 border-amber-300 max-w-2xl w-full max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-amber-100 to-orange-100 p-6 border-b-4 border-amber-300">
+          <div className="text-center">
+            <div className="text-5xl mb-2">📝</div>
+            <h2 className="text-3xl font-bold text-amber-900 font-serif">
+              How was your cooking experience?
+            </h2>
+            <p className="text-amber-700 mt-2">
+              Your feedback helps us improve your recipes!
+            </p>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-8 space-y-6">
+          {/* Question 1: Recipe easy to follow */}
+          <div className="space-y-3">
+            <label className="block text-lg font-bold text-amber-900">
+              Was the recipe easy to follow?
+            </label>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setEasyToFollow(true)}
+                className={`flex-1 p-4 rounded-xl border-2 font-bold transition-all ${
+                  easyToFollow === true
+                    ? 'bg-green-500 border-green-600 text-white shadow-lg scale-105'
+                    : 'bg-white border-amber-200 text-amber-900 hover:border-green-400'
+                }`}
+              >
+                <div className="text-3xl mb-1">👍</div>
+                Yes
+              </button>
+              <button
+                onClick={() => setEasyToFollow(false)}
+                className={`flex-1 p-4 rounded-xl border-2 font-bold transition-all ${
+                  easyToFollow === false
+                    ? 'bg-red-500 border-red-600 text-white shadow-lg scale-105'
+                    : 'bg-white border-amber-200 text-amber-900 hover:border-red-400'
+                }`}
+              >
+                <div className="text-3xl mb-1">👎</div>
+                No
+              </button>
+            </div>
+          </div>
+
+          {/* Question 2: Timers helpful (only if recipe has timers) */}
+          {hasTimers && (
+            <div className="space-y-3">
+              <label className="block text-lg font-bold text-amber-900">
+                Were the timers helpful?
+              </label>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setTimersHelpful(true)}
+                  className={`flex-1 p-4 rounded-xl border-2 font-bold transition-all ${
+                    timersHelpful === true
+                      ? 'bg-green-500 border-green-600 text-white shadow-lg scale-105'
+                      : 'bg-white border-amber-200 text-amber-900 hover:border-green-400'
+                  }`}
+                >
+                  <div className="text-3xl mb-1">⏰</div>
+                  Yes
+                </button>
+                <button
+                  onClick={() => setTimersHelpful(false)}
+                  className={`flex-1 p-4 rounded-xl border-2 font-bold transition-all ${
+                    timersHelpful === false
+                      ? 'bg-red-500 border-red-600 text-white shadow-lg scale-105'
+                      : 'bg-white border-amber-200 text-amber-900 hover:border-red-400'
+                  }`}
+                >
+                  <div className="text-3xl mb-1">⏰</div>
+                  No
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Question 3: Would cook again */}
+          <div className="space-y-3">
+            <label className="block text-lg font-bold text-amber-900">
+              Would you cook this again?
+            </label>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setWouldCookAgain(true)}
+                className={`flex-1 p-4 rounded-xl border-2 font-bold transition-all ${
+                  wouldCookAgain === true
+                    ? 'bg-green-500 border-green-600 text-white shadow-lg scale-105'
+                    : 'bg-white border-amber-200 text-amber-900 hover:border-green-400'
+                }`}
+              >
+                <div className="text-3xl mb-1">😋</div>
+                Yes
+              </button>
+              <button
+                onClick={() => setWouldCookAgain(false)}
+                className={`flex-1 p-4 rounded-xl border-2 font-bold transition-all ${
+                  wouldCookAgain === false
+                    ? 'bg-red-500 border-red-600 text-white shadow-lg scale-105'
+                    : 'bg-white border-amber-200 text-amber-900 hover:border-red-400'
+                }`}
+              >
+                <div className="text-3xl mb-1">😕</div>
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="bg-amber-50 border-t-4 border-amber-200 p-6 flex gap-4">
+          <button
+            onClick={onSkip}
+            className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-400 transition-all"
+          >
+            Skip
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className={`flex-1 py-3 rounded-xl font-bold transition-all ${
+              canSubmit
+                ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-lg'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            Submit Feedback
+          </button>
         </div>
       </div>
     </div>

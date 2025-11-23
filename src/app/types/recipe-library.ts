@@ -15,6 +15,13 @@ export interface RecipeStep {
   notes?: string; // Additional notes or tips
 }
 
+export interface CookingFeedback {
+  timestamp: number; // When the feedback was given
+  easyToFollow: boolean; // Was the recipe easy to follow?
+  timersHelpful: boolean | null; // Were timers helpful? (null if no timers used)
+  wouldCookAgain: boolean; // Would you cook this again?
+}
+
 export interface SavedRecipe {
   id: string;
   title: string;
@@ -41,6 +48,7 @@ export interface SavedRecipe {
   rating?: number; // 1-5 stars
   lastCooked?: number; // timestamp of when last made
   timesCooked: number; // cooking frequency
+  cookingFeedback?: CookingFeedback[]; // feedback from cooking sessions
 
   // Visual elements
   imageUrl?: string; // recipe photo
