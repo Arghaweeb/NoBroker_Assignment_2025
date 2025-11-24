@@ -29,10 +29,10 @@ export default function CookingCompanionApp() {
               <div className="text-3xl">🍳</div>
               <div>
                 <h1 className="text-xl font-bold text-white font-serif">
-                  Cooking Companion
+                  RasoiGenie
                 </h1>
                 <p className="text-xs text-orange-100 hidden sm:block">
-                  Your personal kitchen assistant
+                  Your magical kitchen assistant
                 </p>
               </div>
             </div>
